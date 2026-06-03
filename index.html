@@ -15,37 +15,23 @@
 
 <header class="hero">
   <div class="wrap">
-    <p class="eyebrow">Density-of-states prediction · machine learning for materials</p>
     <h1>DeepDOSReasoner</h1>
     <p class="subtitle">Physics-Grounded Reasoning for Density of States Prediction</p>
 
     <p class="authors">
-      <span class="author">Yingheng Wang<sup>1,&#9993;</sup></span>,
-      <span class="author">Francesco Ricci<sup>2,3,&#9993;</sup></span>,
-      <span class="author">Zhilong Wang<sup>4,5,6</sup></span>,
-      <span class="author">Tao Yu<sup>7</sup></span>,
-      <span class="author">Junwen Bai<sup>1,8</sup></span>,
-      <span class="author">Xiangyun Lei<sup>9</sup></span>,
-      <span class="author">Shufeng Kong<sup>1,7</sup></span>,
-      <span class="author">Fengqi You<sup>4,5,6</sup></span>,
-      <span class="author">John M. Gregoire<sup>10,11</sup></span>,
-      <span class="author">Carla P. Gomes<sup>1,4,&#9993;</sup></span>
+      Yingheng Wang, Francesco Ricci, Zhilong Wang, Tao Yu, Junwen Bai,
+      Xiangyun Lei, Shufeng Kong, Fengqi You, John M. Gregoire, Carla P. Gomes
     </p>
 
-    <ol class="affil">
-      <li>Department of Computer Science, Cornell University, Ithaca, NY, USA</li>
-      <li>Institute of Condensed Matter and Nanosciences, Université catholique de Louvain, Louvain-la-Neuve, Belgium</li>
-      <li>Matgenix SRL, Charleroi, Belgium</li>
-      <li>Cornell University AI for Science Institute, Ithaca, NY, USA</li>
-      <li>College of Engineering, Cornell University, Ithaca, NY, USA</li>
-      <li>Robert Frederick Smith School of Chemical and Biomolecular Engineering, Cornell University, Ithaca, NY, USA</li>
-      <li>School of Software Engineering, Sun Yat-sen University, Zhuhai, Guangdong, China</li>
-      <li>Current address: Google DeepMind, Mountain View, CA, USA</li>
-      <li>Toyota Research Institute, Los Altos, CA, USA</li>
-      <li>California Institute of Technology, Pasadena, CA, USA</li>
-      <li>Current address: Autonomous Science Platform, Lila Sciences, Cambridge, MA, USA</li>
-    </ol>
-    <p class="corr"><span aria-hidden="true">&#9993;</span> Corresponding authors: <a href="mailto:yingheng@cs.cornell.edu">yingheng@cs.cornell.edu</a>, <a href="mailto:francesco.ricci@uclouvain.be">francesco.ricci@uclouvain.be</a>, <a href="mailto:gomes@cs.cornell.edu">gomes@cs.cornell.edu</a></p>
+    <div class="logos" aria-label="Affiliations">
+      <img src="logo/Cornell_University_seal.svg.png" alt="Cornell University" loading="lazy" />
+      <img src="logo/UCLouvain_logo.jpg" alt="UCLouvain" loading="lazy" />
+      <img src="logo/Matgenix_logo.png" alt="Matgenix" loading="lazy" />
+      <img src="logo/Seal_of_the_California_Institute_of_Technology.svg.png" alt="California Institute of Technology" loading="lazy" />
+      <img src="logo/Toyota_Research_Institute_Logo_Square.png" alt="Toyota Research Institute" loading="lazy" />
+    </div>
+
+    <p class="corr">Corresponding authors: <a href="mailto:yingheng@cs.cornell.edu">yingheng@cs.cornell.edu</a>, <a href="mailto:francesco.ricci@uclouvain.be">francesco.ricci@uclouvain.be</a>, <a href="mailto:gomes@cs.cornell.edu">gomes@cs.cornell.edu</a></p>
 
     <nav class="cta">
       <a id="paper-link" class="btn btn-primary" href="#" target="_blank" rel="noopener">Paper</a>
@@ -61,7 +47,7 @@
   <section class="section" id="abstract">
     <div class="wrap narrow">
       <h2>Abstract</h2>
-      <p>Predicting a material's behavior directly from its atomic structure is a longstanding goal of the physical sciences and a prerequisite for accelerating the discovery of new functional materials. The density of states (DOS), which describes the distribution of quantum states across energy, is central to materials properties: the electronic DOS (eDOS) governs electronic and optical behavior, while the phonon DOS (phDOS) determines vibrational and thermodynamic responses. These spectra are conventionally obtained from density functional theory (DFT), which is accurate but costly, motivating machine-learning surrogates that map a crystal structure directly to its full spectrum. Yet existing crystal-to-spectrum models decode the spectrum from a single pooled embedding, reconcile band gaps only post hoc, and rely on pointwise regression that blurs band edges and violates total-state conservation. Here we introduce <strong>DeepDOSReasoner</strong>, a physics-grounded framework that produces energy-resolved predictions through atom-to-energy source attention and refines the normalized DOS under a continuity-equation transport that enforces non-negativity and total-state conservation by construction. DeepDOSReasoner advances the state of the art in learning-based DOS prediction, outperforming existing crystal-to-spectrum models across all major eDOS evaluation metrics, recovering element-resolved contributions without explicit supervision, identifying rare near-Fermi valence-band gaps with high fidelity, and transferring with minimal modification to phDOS prediction. On prospective materials-discovery tasks validated by new DFT calculations, DeepDOSReasoner consistently outperforms existing approaches. Three case studies further demonstrate transfer across functional-materials classes: substituent-induced variants of two parent compounds, photovoltaic-relevant I<sub>2</sub>–II–IV–X<sub>4</sub> chalcogenides, and a CuPtFeCoNi high-entropy alloy (eDOS center within 0.2&nbsp;eV of DFT). DeepDOSReasoner's superior performance stems from the seamless integration of data-driven learning with first-principles physical reasoning: its neural decoder learns rich structure-to-spectrum representations from data, while its constraint-preserving reasoning stage explicitly enforces fundamental conservation laws and physical consistency. Ablation studies demonstrate that neither component alone is sufficient and that the strongest results emerge from their tight coupling. Moreover, DeepDOSReasoner remains highly sample-efficient, matching strong baselines using only 25% of the training data, which paves the way for its application to spectrum-prediction tasks where limited training data challenges prior methods. More broadly, DeepDOSReasoner provides a general blueprint for integrating scientific knowledge and machine learning through first-principles physical reasoning, opening a path toward high-throughput screening of electronic and vibrational properties and the autonomous discovery of functional materials.</p>
+      <p><strong>DeepDOSReasoner</strong> predicts a material's electronic and phonon density of states (eDOS and phDOS) directly from its crystal structure — the spectra that govern electronic, optical, vibrational, and thermal behavior, and that normally require costly density functional theory (DFT). It couples a structure-aware neural decoder, which grounds each energy bin in the atoms that contribute at that energy via atom-to-energy source attention, with a physics-grounded reasoning stage that refines the spectrum under a continuity-equation transport enforcing non-negativity and total-state conservation by construction. The result sets a new state of the art across eDOS and phDOS benchmarks while running roughly 10<sup>7</sup>× faster than DFT (~10.5&nbsp;ms per crystal).</p>
     </div>
   </section>
 
