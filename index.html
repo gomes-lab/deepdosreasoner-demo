@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DeepDOSReasoner — Physics-Grounded Reasoning for Density of States Prediction</title>
+<meta name="description" content="DeepDOSReasoner: a physics-grounded deep-learning framework that predicts the electronic and phonon density of states of materials directly from crystal structure, enforcing conservation laws by construction. Interactive demo of model predictions vs. DFT." />
+<meta property="og:title" content="DeepDOSReasoner" />
+<meta property="og:description" content="Physics-grounded reasoning for density of states prediction — interactive demo." />
+<meta property="og:type" content="website" />
+<link rel="preconnect" href="https://cdn.plot.ly" />
+<link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <p class="eyebrow">Density-of-states prediction · machine learning for materials</p>
+    <h1>DeepDOSReasoner</h1>
+    <p class="subtitle">Physics-Grounded Reasoning for Density of States Prediction</p>
+
+    <p class="authors">
+      <span class="author">Yingheng Wang<sup>1</sup></span>,
+      <span class="author">Francesco Ricci<sup>2,3</sup></span>,
+      <span class="author">Zhilong Wang<sup>4,5,6</sup></span>,
+      <span class="author">Tao Yu<sup>7</sup></span>,
+      <span class="author">Junwen Bai<sup>1,8</sup></span>,
+      <span class="author">Xiangyun Lei<sup>9</sup></span>,
+      <span class="author">Shufeng Kong<sup>1,7</sup></span>,
+      <span class="author">Fengqi You<sup>4,5,6</sup></span>,
+      <span class="author">John M. Gregoire<sup>10,11</sup></span>,
+      <span class="author">Carla P. Gomes<sup>1,4,&#9993;</sup></span>
+    </p>
+
+    <ol class="affil">
+      <li>Department of Computer Science, Cornell University, Ithaca, NY, USA</li>
+      <li>Institute of Condensed Matter and Nanosciences, Université catholique de Louvain, Louvain-la-Neuve, Belgium</li>
+      <li>Matgenix SRL, Charleroi, Belgium</li>
+      <li>Cornell University AI for Science Institute, Ithaca, NY, USA</li>
+      <li>College of Engineering, Cornell University, Ithaca, NY, USA</li>
+      <li>Robert Frederick Smith School of Chemical and Biomolecular Engineering, Cornell University, Ithaca, NY, USA</li>
+      <li>School of Software Engineering, Sun Yat-sen University, Zhuhai, Guangdong, China</li>
+      <li>Current address: Google DeepMind, Mountain View, CA, USA</li>
+      <li>Toyota Research Institute, Los Altos, CA, USA</li>
+      <li>California Institute of Technology, Pasadena, CA, USA</li>
+      <li>Current address: Autonomous Science Platform, Lila Sciences, Cambridge, MA, USA</li>
+    </ol>
+    <p class="corr"><span aria-hidden="true">&#9993;</span> Corresponding author: <a href="mailto:gomes@cs.cornell.edu">gomes@cs.cornell.edu</a></p>
+
+    <nav class="cta">
+      <a id="paper-link" class="btn btn-primary" href="#" target="_blank" rel="noopener">Paper</a>
+      <a id="code-link" class="btn" href="https://github.com/gomes-lab/deep-dos-reasoner" target="_blank" rel="noopener">Code</a>
+      <a class="btn" href="#demo">Interactive demo &#8595;</a>
+    </nav>
+    <p class="status-note">Manuscript under review — the paper link and code repository will be finalized upon publication.</p>
+  </div>
+</header>
+
+<main>
+  <!-- Abstract -->
+  <section class="section" id="abstract">
+    <div class="wrap narrow">
+      <h2>Abstract</h2>
+      <p>Predicting a material's behavior directly from its atomic structure is a longstanding goal of the physical sciences and a prerequisite for accelerating the discovery of new functional materials. The density of states (DOS), which describes the distribution of quantum states across energy, is central to materials properties: the electronic DOS (eDOS) governs electronic and optical behavior, while the phonon DOS (phDOS) determines vibrational and thermodynamic responses. These spectra are conventionally obtained from density functional theory (DFT), which is accurate but costly, motivating machine-learning surrogates that map a crystal structure directly to its full spectrum. Yet existing crystal-to-spectrum models decode the spectrum from a single pooled embedding, reconcile band gaps only post hoc, and rely on pointwise regression that blurs band edges and violates total-state conservation. Here we introduce <strong>DeepDOSReasoner</strong>, a physics-grounded framework that produces energy-resolved predictions through atom-to-energy source attention and refines the normalized DOS under a continuity-equation transport that enforces non-negativity and total-state conservation by construction. DeepDOSReasoner advances the state of the art in learning-based DOS prediction, outperforming existing crystal-to-spectrum models across all major eDOS evaluation metrics, recovering element-resolved contributions without explicit supervision, identifying rare near-Fermi valence-band gaps with high fidelity, and transferring with minimal modification to phDOS prediction. On prospective materials-discovery tasks validated by new DFT calculations, DeepDOSReasoner consistently outperforms existing approaches. Three case studies further demonstrate transfer across functional-materials classes: site-substituted variants of two parent compounds, photovoltaic-relevant I<sub>2</sub>–II–IV–X<sub>4</sub> chalcogenides, and a CuPtFeCoNi high-entropy alloy (eDOS center within 0.2&nbsp;eV of DFT). DeepDOSReasoner's superior performance stems from the seamless integration of data-driven learning with first-principles physical reasoning: its neural decoder learns rich structure-to-spectrum representations from data, while its constraint-preserving reasoning stage explicitly enforces fundamental conservation laws and physical consistency. Ablation studies demonstrate that neither component alone is sufficient and that the strongest results emerge from their tight coupling. Moreover, DeepDOSReasoner remains highly sample-efficient, matching strong baselines using only 25% of the training data, paving the way for spectrum-prediction tasks where limited training data challenges prior methods. More broadly, DeepDOSReasoner provides a general blueprint for integrating scientific knowledge and machine learning through first-principles physical reasoning, opening a path toward high-throughput screening of electronic and vibrational properties and the autonomous discovery of functional materials.</p>
+    </div>
+  </section>
+
+  <!-- Headline numbers -->
+  <section class="section alt" id="results">
+    <div class="wrap">
+      <h2>At a glance</h2>
+      <div class="stats">
+        <div class="stat"><span class="stat-num">0.691</span><span class="stat-label">eDOS R<sup>2</sup> <em>(vs. 0.645 best baseline)</em></span></div>
+        <div class="stat"><span class="stat-num">&#8595;14.3%</span><span class="stat-label">eDOS Wasserstein distance</span></div>
+        <div class="stat"><span class="stat-num">0.688</span><span class="stat-label">phDOS R<sup>2</sup> <em>(vs. 0.598)</em></span></div>
+        <div class="stat"><span class="stat-num">~10<sup>7</sup>&times;</span><span class="stat-label">faster than DFT <em>(~10.5&nbsp;ms / crystal)</em></span></div>
+        <div class="stat"><span class="stat-num">25%</span><span class="stat-label">of training data to match baselines</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Method -->
+  <section class="section" id="method">
+    <div class="wrap">
+      <h2>How it works</h2>
+      <p class="lead">DeepDOSReasoner couples a structure-aware neural decoder with a physics-grounded reasoning stage. The shape of the spectrum is learned from data; its total magnitude is fixed by chemistry, and conservation is guaranteed by the integrator itself rather than encouraged by a soft penalty.</p>
+      <div class="cards">
+        <article class="card">
+          <span class="badge">Stage I</span>
+          <h3>Structure-aware spectrum decoding</h3>
+          <p>An edge-aware crystal-graph Transformer encodes atoms <em>and</em> interatomic features. A decoder then produces the spectrum bin-by-bin through <strong>atom-to-energy source attention</strong>: each energy bin selectively aggregates atom-level information, grounding every spectral coordinate in the atoms that physically contribute at that energy — and recovering element-resolved contributions with no explicit supervision.</p>
+        </article>
+        <article class="card">
+          <span class="badge">Stage II</span>
+          <h3>Constraint-preserving physical reasoning</h3>
+          <p>The normalized DOS is treated as a probability density and refined by a learned <strong>continuity-equation transport</strong> with no-flux boundaries. A CDF-based upwind scheme moves spectral mass along the energy axis while keeping the spectrum non-negative and conserving total states <em>by construction</em>. Mass can only be redistributed — never created or destroyed — so the output is a valid density at every step.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- Interactive demo -->
+  <section class="section alt" id="demo">
+    <div class="wrap">
+      <h2>Interactive demo</h2>
+      <p class="lead">Explore real model predictions against DFT ground truth and the two strongest crystal-to-spectrum baselines. Click a legend entry to toggle a curve; hover for values; pick any material from the list.</p>
+
+      <div class="tabs" role="tablist" aria-label="Spectrum type">
+        <button class="tab is-active" role="tab" data-kind="edos" aria-selected="true">Electronic DOS</button>
+        <button class="tab" role="tab" data-kind="phdos" aria-selected="false">Phonon DOS</button>
+      </div>
+
+      <div class="demo">
+        <aside class="picker">
+          <input id="search" type="search" placeholder="Search formula or mp-id…" autocomplete="off" aria-label="Search materials" />
+          <label class="sort">
+            <span>Sort</span>
+            <select id="sort" aria-label="Sort materials">
+              <option value="rank">Best examples</option>
+              <option value="improvement">Largest error reduction</option>
+              <option value="formula">Formula A–Z</option>
+            </select>
+          </label>
+          <ul id="material-list" class="material-list" role="listbox" aria-label="Materials"></ul>
+        </aside>
+
+        <div class="viewer">
+          <div class="viewer-head">
+            <h3 id="mat-title">—</h3>
+            <p id="mat-meta" class="mat-meta"></p>
+          </div>
+          <div id="plot" class="plot" aria-label="Density of states plot"></div>
+          <p id="mat-metrics" class="mat-metrics"></p>
+        </div>
+      </div>
+      <p class="caption">Mean-squared error (MSE) is computed per material against the DFT label over the plotted window. Curves are min-max-comparable normalized densities. eDOS examples span the primary benchmark (energies relative to the Fermi level); phDOS examples are drawn from the held-out phonon test set.</p>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="wrap">
+    <h2>Cite this work</h2>
+    <pre id="bibtex" class="bibtex">@article{wang2025deepdosreasoner,
+  title   = {DeepDOSReasoner: Physics-Grounded Reasoning for Density of States Prediction},
+  author  = {Wang, Yingheng and Ricci, Francesco and Wang, Zhilong and Yu, Tao and
+             Bai, Junwen and Lei, Xiangyun and Kong, Shufeng and You, Fengqi and
+             Gregoire, John M. and Gomes, Carla P.},
+  year    = {2025},
+  note    = {Manuscript under review}
+}</pre>
+    <p class="foot-links">
+      <a id="code-link-foot" href="https://github.com/gomes-lab/deep-dos-reasoner" target="_blank" rel="noopener">Code</a> ·
+      <a href="https://github.com/gomes-lab/deepdosreasoner-demo" target="_blank" rel="noopener">This demo's source</a> ·
+      <a href="mailto:gomes@cs.cornell.edu">Contact</a>
+    </p>
+    <p class="foot-fine">Gomes Lab, Cornell University. Built on examples from the Materials Project. Data &amp; visualizations are for demonstration; see the paper for full evaluation.</p>
+  </div>
+</footer>
+
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+<script src="assets/app.js"></script>
+</body>
+</html>
