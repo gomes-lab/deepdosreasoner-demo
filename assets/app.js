@@ -5,9 +5,14 @@
 "use strict";
 
 /* ----- editable links ------------------------------------------------------
- * Replace PAPER_URL with the arXiv / DOI / journal link when available. */
+ * Set these when the destinations are public. While empty (""), the matching
+ * button shows "… (coming soon)" and is fully disabled, so the page never links
+ * to a missing/404 target before publication.
+ *   PAPER_URL: arXiv / DOI / journal link.
+ *   CODE_URL : the code repository (e.g. https://github.com/gomes-lab/deep-dos-reasoner
+ *              once it is public — it currently 404s, so it's disabled for now). */
 const PAPER_URL = ""; // e.g. "https://arxiv.org/abs/XXXX.XXXXX"
-const CODE_URL = "https://github.com/gomes-lab/deep-dos-reasoner";
+const CODE_URL = "";  // e.g. "https://github.com/gomes-lab/deep-dos-reasoner"
 /* -------------------------------------------------------------------------- */
 
 const TRACES = [
@@ -27,13 +32,11 @@ const state = {
   data: { edos: null, phdos: null },
   selected: { edos: null, phdos: null }, // mpid
   search: "",
-  sort: "rank",
 };
 
 const el = {
   list: document.getElementById("material-list"),
   search: document.getElementById("search"),
-  sort: document.getElementById("sort"),
   title: document.getElementById("mat-title"),
   meta: document.getElementById("mat-meta"),
   metrics: document.getElementById("mat-metrics"),
@@ -44,6 +47,9 @@ const el = {
 /* ---------- helpers ---------- */
 
 // Wrap trailing digit runs in <sub> for chemical formulas (As2 -> As<sub>2</sub>).
+// formula/mpid come from data/data.js, which is generated from local files by
+// tools/prepare_data.py (trusted build output), so innerHTML here is not an
+// injection vector. If the data source ever changes, escape these instead.
 function formulaHTML(formula, mpid) {
   if (!formula) return mpid;
   return formula.replace(/(\d+)/g, "<sub>$1</sub>");
@@ -71,20 +77,15 @@ function xAxisFor(bundle, m) { return bundle.x || m.x; }
 function filteredMaterials() {
   const bundle = currentData();
   const q = state.search.trim().toLowerCase();
-  let items = bundle.materials.filter((m) => {
+  const items = bundle.materials.filter((m) => {
     if (!q) return true;
     return (
-      (m.formula && m.formula.toLowerCase().includes(q)) ||
-      m.mpid.toLowerCase().includes(q)
+      m.mpid.toLowerCase().includes(q) ||
+      (m.formula && m.formula.toLowerCase().includes(q))
     );
   });
-  const sort = state.sort;
-  items = items.slice().sort((a, b) => {
-    if (sort === "improvement") return (b.improvement || 0) - (a.improvement || 0);
-    if (sort === "formula") return (a.formula || a.mpid).localeCompare(b.formula || b.mpid);
-    return a.rank - b.rank;
-  });
-  return items;
+  // Fixed order: best examples first (by rank).
+  return items.slice().sort((a, b) => a.rank - b.rank);
 }
 
 function renderList() {
@@ -104,14 +105,9 @@ function renderList() {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "mat-item" + (m.mpid === selected ? " is-active" : "");
-    btn.setAttribute("role", "option");
-    btn.setAttribute("aria-selected", m.mpid === selected ? "true" : "false");
+    btn.setAttribute("aria-current", m.mpid === selected ? "true" : "false");
     btn.dataset.mpid = m.mpid;
-    const imp = m.improvement ? `${m.improvement}× lower` : "";
-    btn.innerHTML =
-      `<span class="mat-rank">#${m.rank}</span>` +
-      `<span class="mat-formula">${formulaHTML(m.formula, m.mpid)}</span>` +
-      (imp ? `<span class="mat-badge">${imp}</span>` : "");
+    btn.textContent = m.mpid;
     btn.addEventListener("click", () => select(m.mpid));
     li.appendChild(btn);
     frag.appendChild(li);
@@ -179,7 +175,7 @@ function renderMeta(m) {
   const cifLink = m.hasCif
     ? ` · <a href="data/structures/${m.mpid}.cif" download>Download .cif</a>`
     : "";
-  const mpUrl = `https://materialsproject.org/materials/${m.mpid}`;
+  const mpUrl = `https://next-gen.materialsproject.org/materials/${m.mpid}`;
   el.meta.innerHTML =
     `<a href="${mpUrl}" target="_blank" rel="noopener">${m.mpid}</a>` +
     ` · ${state.kind === "edos" ? "electronic" : "phonon"} DOS` +
@@ -204,7 +200,7 @@ function select(mpid) {
   el.list.querySelectorAll(".mat-item").forEach((b) => {
     const on = b.dataset.mpid === mpid;
     b.classList.toggle("is-active", on);
-    b.setAttribute("aria-selected", on ? "true" : "false");
+    b.setAttribute("aria-current", on ? "true" : "false");
   });
 }
 
@@ -241,53 +237,51 @@ function switchKind(kind, { push = true } = {}) {
   refresh();
 }
 
+function setCtaLink(elm, url, label) {
+  if (!elm) return;
+  if (url) {
+    elm.href = url;
+    return;
+  }
+  elm.textContent = `${label} (coming soon)`;
+  elm.classList.add("is-disabled");
+  elm.setAttribute("aria-disabled", "true");
+  elm.setAttribute("tabindex", "-1");
+  elm.removeAttribute("href");
+  elm.removeAttribute("target");
+}
+
 function wire() {
   el.tabs.forEach((t) => t.addEventListener("click", () => switchKind(t.dataset.kind)));
   el.search.addEventListener("input", () => { state.search = el.search.value; renderList(); });
-  el.sort.addEventListener("change", () => { state.sort = el.sort.value; refresh(); });
 
-  // paper link: enable only if configured
-  const paper = document.getElementById("paper-link");
-  if (PAPER_URL) {
-    paper.href = PAPER_URL;
-  } else {
-    paper.textContent = "Paper (coming soon)";
-    paper.classList.add("is-disabled");
-    paper.setAttribute("aria-disabled", "true");
-    paper.removeAttribute("target");
-  }
-  document.getElementById("code-link").href = CODE_URL;
-  const cf = document.getElementById("code-link-foot");
-  if (cf) cf.href = CODE_URL;
+  // Enable a CTA link only if its URL is configured; otherwise mark it
+  // "… (coming soon)" and make it fully inert for mouse AND keyboard (no href,
+  // not focusable), consistent with aria-disabled.
+  setCtaLink(document.getElementById("paper-link"), PAPER_URL, "Paper");
+  setCtaLink(document.getElementById("code-link"), CODE_URL, "Code");
+  setCtaLink(document.getElementById("code-link-foot"), CODE_URL, "Code");
 }
 
-async function loadJSON(path) {
-  const res = await fetch(path);
-  if (!res.ok) throw new Error(`${path}: HTTP ${res.status}`);
-  return res.json();
-}
-
-async function init() {
+function init() {
   wire();
-  try {
-    const [edos, phdos] = await Promise.all([
-      loadJSON("data/edos.json"),
-      loadJSON("data/phdos.json"),
-    ]);
-    state.data.edos = edos;
-    state.data.phdos = phdos;
-    // Honor a shareable ?kind=phdos / ?kind=edos deep link.
-    const wanted = new URLSearchParams(location.search).get("kind");
-    if (wanted === "phdos" || wanted === "edos") {
-      state.kind = wanted;
-      setTabUI(wanted);
-    }
-    refresh();
-  } catch (err) {
-    el.list.innerHTML = `<li class="list-empty">Could not load demo data (${err.message}).</li>`;
+  // Data is provided synchronously by data/data.js (a <script> tag), so the page
+  // works when opened directly from disk (file://) as well as over HTTP.
+  const data = window.DDR_DATA;
+  if (!data || !data.edos || !data.phdos) {
+    el.list.innerHTML = `<li class="list-empty">Could not load demo data — data/data.js is missing. Run <code>python3 tools/prepare_data.py</code>.</li>`;
     el.title.textContent = "Data unavailable";
-    console.error(err);
+    return;
   }
+  state.data.edos = data.edos;
+  state.data.phdos = data.phdos;
+  // Honor a shareable ?kind=phdos / ?kind=edos deep link.
+  const wanted = new URLSearchParams(location.search).get("kind");
+  if (wanted === "phdos" || wanted === "edos") {
+    state.kind = wanted;
+    setTabUI(wanted);
+  }
+  refresh();
 }
 
 document.addEventListener("DOMContentLoaded", init);

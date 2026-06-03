@@ -3,7 +3,7 @@
   --bg-alt: #f7f7f9;
   --ink: #1a1a1f;
   --muted: #5c6066;
-  --faint: #8a8f98;
+  --faint: #6c7079;
   --line: #e6e7eb;
   --accent: #c81d4e;        /* DeepDOSReasoner crimson */
   --accent-dark: #9c1339;
@@ -198,9 +198,7 @@ h1, h2, h3 { line-height: 1.2; letter-spacing: -0.01em; }
   font: inherit;
   margin-bottom: 10px;
 }
-#search:focus, #sort:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
-.sort { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--muted); margin-bottom: 10px; }
-.sort select { flex: 1; padding: 7px 8px; border: 1px solid var(--line); border-radius: 8px; font: inherit; background: var(--bg); }
+#search:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
 
 .material-list {
   list-style: none;
@@ -225,10 +223,6 @@ h1, h2, h3 { line-height: 1.2; letter-spacing: -0.01em; }
 }
 .mat-item:hover { background: var(--bg-alt); }
 .mat-item.is-active { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
-.mat-rank { font-size: 0.72rem; color: var(--faint); width: 2.6em; flex: none; }
-.mat-formula { font-weight: 600; flex: 1; }
-.mat-formula sub { font-size: 0.72em; }
-.mat-badge { font-size: 0.7rem; color: var(--accent-dark); background: var(--accent-soft); border-radius: 999px; padding: 1px 7px; white-space: nowrap; }
 .list-empty { color: var(--faint); font-size: 0.9rem; padding: 12px 10px; }
 
 .viewer {

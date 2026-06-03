@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
-"""Build the DeepDOSReasoner demo data bundles.
+"""Build the DeepDOSReasoner demo data bundle.
 
-Reads the local example folders shipped with the project and emits compact JSON
-that the static site (../index.html) fetches and plots client-side:
+Reads the local example folders shipped with the project and emits a single
+JS file (data/data.js) that the static site (../index.html) loads via a
+<script> tag and plots client-side:
 
-    plots_best100/  -> data/edos.json    (electronic DOS, 100 materials)
-    phdos/          -> data/phdos.json    (phonon DOS, 50 materials)
+    plots_best100/  ->  window.DDR_DATA.edos    (electronic DOS, 100 materials)
+    phdos/          ->  window.DDR_DATA.phdos    (phonon DOS, 50 materials)
+
+A <script>-loaded global is used (rather than fetch of a .json) so the page
+works when index.html is opened directly from disk (file://) as well as over HTTP.
 
 For each example we keep the four curves (DFT ground truth + DeepDOSReasoner +
 the two strongest baselines), a per-model MSE computed against the DFT label, and
@@ -39,7 +43,6 @@ DATASETS = {
             "mat2spec": "mat2spec",
             "dostransformer": "dostransformer",
         },
-        "out": DATA_DIR / "edos.json",
         "xlabel": "Energy E − E_F (eV)",
     },
     "phdos": {
@@ -51,7 +54,6 @@ DATASETS = {
             "mat2spec": "Mat2Spec",
             "dostransformer": "DOSTransformer",
         },
-        "out": DATA_DIR / "phdos.json",
         "xlabel": "Frequency (cm⁻¹)",
     },
 }
@@ -167,13 +169,24 @@ def copy_cifs() -> int:
 
 def main() -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
+    bundles = {}
     for name, cfg in DATASETS.items():
         if not (cfg["src"] / "csv").is_dir():
             raise SystemExit(f"missing source folder: {cfg['src']/'csv'}")
         bundle = build(name, cfg)
-        cfg["out"].write_text(json.dumps(bundle, separators=(",", ":")))
-        kb = cfg["out"].stat().st_size / 1024
-        print(f"[{name}] wrote {cfg['out'].relative_to(ROOT)} ({kb:.0f} KB)")
+        bundles[name] = bundle
+
+    # Single JS bundle the page loads via <script>. This is the ONLY data file
+    # the page consumes, and it works both over HTTP and when index.html is
+    # opened directly from disk (file://), where fetch() is blocked.
+    js_path = DATA_DIR / "data.js"
+    js_path.write_text(
+        "window.DDR_DATA = " + json.dumps(bundles, separators=(",", ":")) + ";\n"
+    )
+    for name in bundles:
+        print(f"[{name}] {len(bundles[name]['materials'])} materials")
+    print(f"[bundle] wrote {js_path.relative_to(ROOT)} ({js_path.stat().st_size/1024:.0f} KB)")
+
     n = copy_cifs()
     print(f"[cif] copied {n} structures -> {STRUCT_OUT.relative_to(ROOT)}")
 
