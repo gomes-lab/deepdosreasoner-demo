@@ -21,8 +21,6 @@ const TRACE_STYLE = {
   dos_reasoner:   { name: "DeepDOSReasoner",     color: "#c81d4e", width: 2.6, dash: "solid" },
   mat2spec:       { name: "Mat2Spec",            color: "#1f77b4", width: 1.6, dash: "dot"   },
   dostransformer: { name: "DOSTransformer",      color: "#e07b00", width: 1.6, dash: "dash"  },
-  up:             { name: "DFT spin-up",         color: "#3a3a42", width: 2,   dash: "solid" },
-  down:           { name: "DFT spin-down",       color: "#1f77b4", width: 2,   dash: "solid" }, // stored negative (VASP convention)
 };
 
 const state = {
@@ -160,18 +158,12 @@ function mpLink(m) {
 }
 
 function renderMeta(m) {
-  const ds = dataset();
   el.title.innerHTML = formulaHTML(m.formula, m.label);
 
   const bits = [];
   const link = mpLink(m);
   const idText = (m.meta && m.meta.parent) || m.id;
   bits.push(link ? `<a href="${link}" target="_blank" rel="noopener">${idText}</a>` : idText);
-  if (ds.kind === "vbgap") {
-    bits.push(`DFT VB-gap: <b>${m.meta.truly_gapped ? "yes" : "no"}</b>`);
-    bits.push(`model-flagged: <b>${m.meta.predicted_gapped ? "yes" : "no"}</b>`);
-  }
-  if (m.meta && m.meta.dft_only) bits.push("DFT spin-resolved (no ML prediction)");
   if (m.cif) bits.push(`<a href="${m.cif}" download>Download .cif</a>`);
   el.meta.innerHTML = bits.join(" · ");
 
