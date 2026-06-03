@@ -56,5 +56,10 @@ python3 -m http.server 8000
 ## Deployment
 
 Pushing to `main` triggers `.github/workflows/pages.yml`, which deploys the repo
-root to GitHub Pages. **One-time setup:** in the repository **Settings → Pages**,
-set **Source = GitHub Actions**.
+root to GitHub Pages. The workflow uses `actions/configure-pages` with
+`enablement: true`, so it turns Pages on (source = GitHub Actions) by itself —
+no manual setup needed in most cases.
+
+**Fallback:** if the first run fails at the deploy step (e.g. org policy blocks
+auto-enable), go to **Settings → Pages**, set **Source = GitHub Actions**, then
+re-run the workflow from the **Actions** tab.
