@@ -1,20 +1,22 @@
 #!/usr/bin/env python3
 """Build the DeepDOSReasoner demo data bundle.
 
-Reads the local example folders shipped with the project and emits a single
-JS file (data/data.js) that the static site (../index.html) loads via a
-<script> tag and plots client-side:
+Reads the local example folders shipped with the project and emits a single JS
+file (data/data.js) that the static site (../index.html) loads via a <script>
+tag and plots client-side. A <script>-loaded global is used (rather than fetch
+of a .json) so the page also works when opened directly from disk (file://).
 
-    plots_best100/  ->  window.DDR_DATA.edos    (electronic DOS, 100 materials)
-    phdos/          ->  window.DDR_DATA.phdos    (phonon DOS, 50 materials)
+Datasets produced (window.DDR_DATA.datasets):
+    edos          plots_best100/           electronic DOS, 100 materials, 4 curves
+    phdos         phdos/                   phonon DOS, 50 materials, 4 curves
+    vbgap         vb_gap/                  VB-gap discovery, 100 materials, pred vs DFT
+    semiconductor allloy_semiconductor/    I2-II-IV-X4 chalcogenides, pred vs DFT
+    alloy         allloy_semiconductor/    CuPtFeCoNi high-entropy alloy, pred vs DFT
+    doped         Doped-materials/         substituted variants, DFT spin-resolved TDOS
 
-A <script>-loaded global is used (rather than fetch of a .json) so the page
-works when index.html is opened directly from disk (file://) as well as over HTTP.
-
-For each example we keep the four curves (DFT ground truth + DeepDOSReasoner +
-the two strongest baselines), a per-model MSE computed against the DFT label, and
-a human-readable chemical formula parsed from the matching .cif. CIFs are copied
-into data/structures/ so the page can offer a structure download.
+Each dataset: {kind, label, xlabel, ylabel, fermi, x|null, traces:[keys],
+materials:[{id, label, formula?, rank, curves:{key:[...]}, x?, mse?, improvement?,
+meta?, cif?}]}. Trace styling lives in assets/app.js, keyed by the trace key.
 
 Run from anywhere:  python3 tools/prepare_data.py
 """
@@ -31,164 +33,266 @@ ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT / "data"
 STRUCT_OUT = DATA_DIR / "structures"
 
-# (source folder, csv x-column, csv curve columns in our canonical order, output file)
-DATASETS = {
-    "edos": {
-        "src": ROOT / "plots_best100",
-        "xcol": "energy_eV",
-        # canonical key -> csv column name
-        "cols": {
-            "label": "label",
-            "dos_reasoner": "dos_reasoner",
-            "mat2spec": "mat2spec",
-            "dostransformer": "dostransformer",
-        },
-        "xlabel": "Energy E − E_F (eV)",
-    },
-    "phdos": {
-        "src": ROOT / "phdos",
-        "xcol": "frequency_cm-1",
-        "cols": {
-            "label": "DFT_label",
-            "dos_reasoner": "DOS-Reasoner",
-            "mat2spec": "Mat2Spec",
-            "dostransformer": "DOSTransformer",
-        },
-        "xlabel": "Frequency (cm⁻¹)",
-    },
-}
-
-RANK_RE = re.compile(r"rank(\d+)_(mp-\d+)\.csv$")
 ELEM_RE = re.compile(r"([A-Z][a-z]?)(\d*)")
+RANK_RE = re.compile(r"rank(\d+)_(mp-\d+)\.csv$")
+IDX_RE = re.compile(r"^(\d+)_(.+)\.csv$")
+
+# Shared electronic energy grid (eV), −4..4 over 128 bins.
+EDOS_X = [round(-4.0 + 8.0 * i / 127, 6) for i in range(128)]
 
 
-def parse_formula(cif_path: Path) -> str | None:
-    """Return a compact pretty formula (e.g. 'Cu2BaHfS4') from a .cif, or None."""
-    if not cif_path.is_file():
-        return None
-    raw = None
-    for line in cif_path.read_text().splitlines():
-        s = line.strip()
-        if s.startswith("_chemical_formula_sum"):
-            raw = s[len("_chemical_formula_sum"):].strip().strip("'\"")
-            break
-    if not raw:
-        return None
-    parts = []
-    for tok in raw.split():
-        m = ELEM_RE.fullmatch(tok)
-        if not m:
-            return raw  # unexpected shape; show as-is
-        el, count = m.group(1), m.group(2)
-        parts.append(el + ("" if count in ("", "1") else count))
-    return "".join(parts) if parts else raw
+# ---------------------------------------------------------------- helpers ----
 
-
-def mse(pred: list[float], label: list[float]) -> float:
+def mse(pred, label):
     n = min(len(pred), len(label))
     if n == 0:
         return 0.0
     return sum((pred[i] - label[i]) ** 2 for i in range(n)) / n
 
 
-def round_list(vals: list[float], ndigits: int = 6) -> list[float]:
+def rnd(vals, ndigits=6):
     return [round(v, ndigits) for v in vals]
 
 
-def load_example(csv_path: Path, cfg: dict) -> dict:
-    rank, mpid = RANK_RE.search(csv_path.name).groups()
-    x: list[float] = []
-    curves: dict[str, list[float]] = {k: [] for k in cfg["cols"]}
-    with csv_path.open(newline="") as fh:
-        reader = csv.DictReader(fh)
-        for row in reader:
-            x.append(float(row[cfg["xcol"]]))
-            for key, src_col in cfg["cols"].items():
-                curves[key].append(float(row[src_col]))
-
-    label = curves["label"]
-    metrics = {
-        "dos_reasoner": mse(curves["dos_reasoner"], label),
-        "mat2spec": mse(curves["mat2spec"], label),
-        "dostransformer": mse(curves["dostransformer"], label),
-    }
-    best_baseline = min(metrics["mat2spec"], metrics["dostransformer"])
-    dsr = metrics["dos_reasoner"]
-    improvement = (best_baseline / dsr) if dsr > 0 else None
-
-    formula = parse_formula(cfg["src"] / "structures" / f"{mpid}.cif")
-
-    return {
-        "rank": int(rank),
-        "mpid": mpid,
-        "formula": formula,
-        "x": round_list(x),
-        "curves": {k: round_list(v) for k, v in curves.items()},
-        "mse": {k: round(v, 6) for k, v in metrics.items()},
-        "improvement": round(improvement, 3) if improvement is not None else None,
-        "hasCif": (cfg["src"] / "structures" / f"{mpid}.cif").is_file(),
-    }
+def pretty_formula(raw):
+    """Compact a space-separated formula sum ('Cu Ba Hf S4') -> 'CuBaHfS4'."""
+    parts = []
+    for tok in raw.split():
+        m = ELEM_RE.fullmatch(tok)
+        if not m:
+            return raw
+        el, count = m.group(1), m.group(2)
+        parts.append(el + ("" if count in ("", "1") else count))
+    return "".join(parts) if parts else raw
 
 
-def build(name: str, cfg: dict) -> dict:
-    csv_dir = cfg["src"] / "csv"
+def formula_from_sum(cif_path):
+    """Formula from a pymatgen CIF (_chemical_formula_sum). None if absent."""
+    if not cif_path.is_file():
+        return None
+    for line in cif_path.read_text().splitlines():
+        s = line.strip()
+        if s.startswith("_chemical_formula_sum"):
+            return pretty_formula(s[len("_chemical_formula_sum"):].strip().strip("'\""))
+    return None
+
+
+def formula_from_atomloop(cif_path):
+    """Formula by counting _atom_site_type_symbol (VASPKIT/VESTA CIFs)."""
+    if not cif_path.is_file():
+        return None
+    counts = {}
+    in_atoms = False
+    for line in cif_path.read_text().splitlines():
+        s = line.strip()
+        if s.startswith("_atom_site_type_symbol"):
+            in_atoms = True
+            continue
+        if not in_atoms:
+            continue
+        if s == "" or s.startswith(("loop_", "_", "data_", "#")):
+            break
+        toks = s.split()
+        if len(toks) >= 2:
+            el = toks[-1]
+            counts[el] = counts.get(el, 0) + 1
+    if not counts:
+        return None
+    return "".join(f"{el}{n if n > 1 else ''}" for el, n in sorted(counts.items()))
+
+
+def two_curve_metrics(curves):
+    """MSE of dos_reasoner vs label, when both present."""
+    if "label" in curves and "dos_reasoner" in curves:
+        return {"dos_reasoner": round(mse(curves["dos_reasoner"], curves["label"]), 6)}
+    return None
+
+
+# --------------------------------------------------------------- builders ----
+
+def build_edos_phdos(name, src, xcol, colmap, xlabel, ylabel, fermi, label, has_baselines):
+    csv_dir = src / "csv"
     files = sorted(csv_dir.glob("rank*_mp-*.csv"),
                    key=lambda p: int(RANK_RE.search(p.name).group(1)))
-    materials = [load_example(p, cfg) for p in files]
-
-    # Shared x-grid if every example uses the same axis (true for both datasets).
-    xs = {tuple(m["x"]) for m in materials}
+    materials = []
     shared_x = None
+    for p in files:
+        rank, mpid = RANK_RE.search(p.name).groups()
+        x, curves = [], {k: [] for k in colmap}
+        with p.open(newline="") as fh:
+            for row in csv.DictReader(fh):
+                x.append(float(row[xcol]))
+                for key, col in colmap.items():
+                    curves[key].append(float(row[col]))
+        label_curve = curves["label"]
+        metrics = {k: round(mse(curves[k], label_curve), 6)
+                   for k in ("dos_reasoner", "mat2spec", "dostransformer") if k in curves}
+        improvement = None
+        if has_baselines:
+            best = min(metrics["mat2spec"], metrics["dostransformer"])
+            dsr = metrics["dos_reasoner"]
+            improvement = round(best / dsr, 3) if dsr > 0 else None
+        cif = src / "structures" / f"{mpid}.cif"
+        materials.append({
+            "id": mpid, "label": mpid, "formula": formula_from_sum(cif),
+            "rank": int(rank), "curves": {k: rnd(v) for k, v in curves.items()},
+            "x": rnd(x), "mse": metrics, "improvement": improvement,
+            "cif": f"data/structures/{mpid}.cif" if cif.is_file() else None,
+        })
+    # collapse shared x grid
+    xs = {tuple(m["x"]) for m in materials}
     if len(xs) == 1:
         shared_x = materials[0]["x"]
         for m in materials:
             m.pop("x", None)
-
-    missing_cif = [m["mpid"] for m in materials if not m["hasCif"]]
-    print(f"[{name}] {len(materials)} materials, "
-          f"shared_x={'yes' if shared_x else 'no'}, "
-          f"missing cifs: {missing_cif or 'none'}")
-
     return {
-        "kind": name,
-        "xlabel": cfg["xlabel"],
-        "x": shared_x,  # null if per-material x kept on each entry
+        "kind": name, "label": label, "xlabel": xlabel, "ylabel": ylabel,
+        "fermi": fermi, "x": shared_x,
+        "traces": ["label", "dos_reasoner"] + (["mat2spec", "dostransformer"] if has_baselines else []),
         "materials": materials,
     }
 
 
-def copy_cifs() -> int:
+def build_vbgap(src):
+    path = src / "sample_100_xtal2dos_vs_gt_wide.csv"
+    materials = []
+    with path.open(newline="") as fh:
+        reader = csv.DictReader(fh)
+        n_bins = sum(1 for k in reader.fieldnames if k.startswith("gt_dos_"))
+        for i, row in enumerate(reader):
+            gt = [float(row[f"gt_dos_{j:03d}"]) for j in range(n_bins)]
+            pred = [float(row[f"pred_dos_{j:03d}"]) for j in range(n_bins)]
+            curves = {"label": gt, "dos_reasoner": pred}
+            materials.append({
+                "id": row["mpid"], "label": row["mpid"], "formula": None,
+                "rank": i + 1, "curves": {k: rnd(v) for k, v in curves.items()},
+                "mse": two_curve_metrics(curves),
+                "meta": {
+                    "truly_gapped": row["truly_gapped"] == "True",
+                    "predicted_gapped": row["xtal2dos_predicted_gapped"] == "True",
+                    "source": row["source"],
+                },
+            })
+    return {
+        "kind": "vbgap", "label": "VB-gap discovery",
+        "xlabel": "Energy E − E_F (eV)", "ylabel": "Density of states (a.u.)",
+        "fermi": True, "x": EDOS_X, "traces": ["label", "dos_reasoner"],
+        "materials": materials,
+    }
+
+
+def build_simple_csv(kind, label, csv_paths, ylabel):
+    """alloy / semiconductor: CSV with Energy, DOS-Reasoner, Ground Truth."""
+    colmap = {"label": "Ground Truth (states/eV)", "dos_reasoner": "DOS-Reasoner (states/eV)"}
+    materials, shared_x = [], None
+    for i, p in enumerate(sorted(csv_paths)):
+        m = IDX_RE.match(p.name)
+        formula = m.group(2) if m else p.stem
+        x, curves = [], {k: [] for k in colmap}
+        with p.open(newline="") as fh:
+            for row in csv.DictReader(fh):
+                x.append(float(row["Energy (eV)"]))
+                for key, col in colmap.items():
+                    curves[key].append(float(row[col]))
+        materials.append({
+            "id": formula, "label": formula, "formula": formula,
+            "rank": i + 1, "curves": {k: rnd(v) for k, v in curves.items()},
+            "x": rnd(x), "mse": two_curve_metrics(curves),
+        })
+    xs = {tuple(m["x"]) for m in materials}
+    if len(xs) == 1:
+        shared_x = materials[0]["x"]
+        for m in materials:
+            m.pop("x", None)
+    return {
+        "kind": kind, "label": label, "xlabel": "Energy E − E_F (eV)",
+        "ylabel": ylabel, "fermi": True, "x": shared_x,
+        "traces": ["label", "dos_reasoner"], "materials": materials,
+    }
+
+
+def build_doped(src):
+    """DFT spin-resolved TDOS for substituted variants (no model prediction)."""
     STRUCT_OUT.mkdir(parents=True, exist_ok=True)
-    copied = 0
-    for cfg in DATASETS.values():
-        for cif in (cfg["src"] / "structures").glob("mp-*.cif"):
-            shutil.copy2(cif, STRUCT_OUT / cif.name)
-            copied += 1
-    return copied
+    materials = []
+    dats = sorted(src.glob("*-TDOS.dat"))
+    for i, dat in enumerate(dats):
+        stem = dat.name.replace("-TDOS.dat", "")          # mp-569994-dope-1
+        m = re.match(r"(mp-\d+)-dope-(\d+)", stem)
+        mpid, variant = (m.group(1), m.group(2)) if m else (stem, "?")
+        x, up, down = [], [], []
+        for line in dat.read_text().splitlines():
+            s = line.strip()
+            if not s or s.startswith("#"):
+                continue
+            parts = s.split()
+            if len(parts) >= 3:
+                x.append(float(parts[0])); up.append(float(parts[1])); down.append(float(parts[2]))
+        cif_src = src / f"{stem}-CONTCAR.cif"
+        formula = formula_from_atomloop(cif_src)
+        cif_path = None
+        if cif_src.is_file():
+            dest = STRUCT_OUT / f"{stem}.cif"
+            shutil.copy2(cif_src, dest)
+            cif_path = f"data/structures/{stem}.cif"
+        materials.append({
+            "id": stem, "label": f"{mpid} · variant {variant}", "formula": formula,
+            "rank": i + 1, "x": rnd(x),
+            "curves": {"up": rnd(up), "down": rnd(down)},
+            "meta": {"variant": variant, "parent": mpid, "dft_only": True},
+            "cif": cif_path,
+        })
+    return {
+        "kind": "doped", "label": "Doped materials",
+        "xlabel": "Energy E − E_F (eV)", "ylabel": "DOS (states/eV)",
+        "fermi": True, "x": None, "traces": ["up", "down"],
+        "note": "DFT spin-resolved total DOS for the substituted variants.",
+        "materials": materials,
+    }
 
 
-def main() -> None:
+# -------------------------------------------------------------------- main ----
+
+def main():
     DATA_DIR.mkdir(parents=True, exist_ok=True)
-    bundles = {}
-    for name, cfg in DATASETS.items():
-        if not (cfg["src"] / "csv").is_dir():
-            raise SystemExit(f"missing source folder: {cfg['src']/'csv'}")
-        bundle = build(name, cfg)
-        bundles[name] = bundle
 
-    # Single JS bundle the page loads via <script>. This is the ONLY data file
-    # the page consumes, and it works both over HTTP and when index.html is
-    # opened directly from disk (file://), where fetch() is blocked.
+    datasets = {}
+    datasets["edos"] = build_edos_phdos(
+        "edos", ROOT / "plots_best100", "energy_eV",
+        {"label": "label", "dos_reasoner": "dos_reasoner",
+         "mat2spec": "mat2spec", "dostransformer": "dostransformer"},
+        "Energy E − E_F (eV)", "Density of states (a.u.)", True, "Electronic DOS", True)
+    datasets["phdos"] = build_edos_phdos(
+        "phdos", ROOT / "phdos", "frequency_cm-1",
+        {"label": "DFT_label", "dos_reasoner": "DOS-Reasoner",
+         "mat2spec": "Mat2Spec", "dostransformer": "DOSTransformer"},
+        "Frequency (cm⁻¹)", "Phonon DOS (a.u.)", False, "Phonon DOS", True)
+    datasets["vbgap"] = build_vbgap(ROOT / "vb_gap")
+    sc_dir = ROOT / "allloy_semiconductor"
+    datasets["semiconductor"] = build_simple_csv(
+        "semiconductor", "Semiconductors",
+        list((sc_dir / "semiconductor").glob("*.csv")), "DOS (states/eV)")
+    datasets["alloy"] = build_simple_csv(
+        "alloy", "High-entropy alloy",
+        list((sc_dir / "alloy").glob("*.csv")), "DOS (states/eV)")
+    datasets["doped"] = build_doped(ROOT / "Doped-materials")
+
+    order = ["edos", "phdos", "vbgap", "semiconductor", "alloy", "doped"]
+    bundle = {"order": order, "datasets": datasets}
+
     js_path = DATA_DIR / "data.js"
-    js_path.write_text(
-        "window.DDR_DATA = " + json.dumps(bundles, separators=(",", ":")) + ";\n"
-    )
-    for name in bundles:
-        print(f"[{name}] {len(bundles[name]['materials'])} materials")
+    js_path.write_text("window.DDR_DATA = " + json.dumps(bundle, separators=(",", ":")) + ";\n")
+    for k in order:
+        d = datasets[k]
+        print(f"  {k:14} {len(d['materials']):>3} materials  traces={d['traces']}")
     print(f"[bundle] wrote {js_path.relative_to(ROOT)} ({js_path.stat().st_size/1024:.0f} KB)")
 
-    n = copy_cifs()
-    print(f"[cif] copied {n} structures -> {STRUCT_OUT.relative_to(ROOT)}")
+    # copy pymatgen CIFs for edos/phdos downloads
+    n = 0
+    for sub in (ROOT / "plots_best100" / "structures", ROOT / "phdos" / "structures"):
+        for cif in sub.glob("mp-*.cif"):
+            shutil.copy2(cif, STRUCT_OUT / cif.name); n += 1
+    print(f"[cif] copied {n} structures (+ doped CIFs) -> {STRUCT_OUT.relative_to(ROOT)}")
 
 
 if __name__ == "__main__":

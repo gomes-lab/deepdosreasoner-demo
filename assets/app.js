@@ -1,13 +1,13 @@
 /* DeepDOSReasoner demo — interactive DOS prediction explorer.
- * Loads data/edos.json + data/phdos.json (built by tools/prepare_data.py) and
- * renders each material's four curves with Plotly. No build step. */
+ * Loads data/data.js (window.DDR_DATA = {order, datasets}) and renders each
+ * material's curves with Plotly. Datasets declare which trace keys they carry;
+ * styling for each key lives in TRACE_STYLE below. No build step, no fetch. */
 
 "use strict";
 
 /* ----- editable links ------------------------------------------------------
- * Set these when the destinations are public. While empty (""), the matching
- * button shows "… (coming soon)" and is fully disabled, so the page never links
- * to a missing/404 target before publication.
+ * While empty (""), the matching button shows "… (coming soon)" and is disabled,
+ * so the page never links to a missing/404 target before publication.
  *   PAPER_URL: arXiv / DOI / journal link.
  *   CODE_URL : the code repository (e.g. https://github.com/gomes-lab/deep-dos-reasoner
  *              once it is public — it currently 404s, so it's disabled for now). */
@@ -15,43 +15,40 @@ const PAPER_URL = ""; // e.g. "https://arxiv.org/abs/XXXX.XXXXX"
 const CODE_URL = "";  // e.g. "https://github.com/gomes-lab/deep-dos-reasoner"
 /* -------------------------------------------------------------------------- */
 
-const TRACES = [
-  { key: "label", name: "DFT (ground truth)", color: "#3a3a42", width: 3, dash: "solid" },
-  { key: "dos_reasoner", name: "DeepDOSReasoner", color: "#c81d4e", width: 2.6, dash: "solid" },
-  { key: "mat2spec", name: "Mat2Spec", color: "#1f77b4", width: 1.6, dash: "dot" },
-  { key: "dostransformer", name: "DOSTransformer", color: "#e07b00", width: 1.6, dash: "dash" },
-];
-
-const AXES = {
-  edos: { x: "Energy E − E_F (eV)", y: "Density of states (a.u.)", fermi: true },
-  phdos: { x: "Frequency (cm⁻¹)", y: "Phonon DOS (a.u.)", fermi: false },
+// Per-curve styling, keyed by the trace key a dataset lists in its `traces`.
+const TRACE_STYLE = {
+  label:          { name: "DFT (ground truth)", color: "#3a3a42", width: 3,   dash: "solid" },
+  dos_reasoner:   { name: "DeepDOSReasoner",     color: "#c81d4e", width: 2.6, dash: "solid" },
+  mat2spec:       { name: "Mat2Spec",            color: "#1f77b4", width: 1.6, dash: "dot"   },
+  dostransformer: { name: "DOSTransformer",      color: "#e07b00", width: 1.6, dash: "dash"  },
+  up:             { name: "DFT spin-up",         color: "#3a3a42", width: 2,   dash: "solid" },
+  down:           { name: "DFT spin-down",       color: "#1f77b4", width: 2,   dash: "solid" }, // stored negative (VASP convention)
 };
 
 const state = {
-  kind: "edos",
-  data: { edos: null, phdos: null },
-  selected: { edos: null, phdos: null }, // mpid
+  kind: null,
+  data: null,     // window.DDR_DATA
+  selected: {},   // kind -> material id
   search: "",
 };
 
 const el = {
+  tabs: document.getElementById("tabs"),
   list: document.getElementById("material-list"),
   search: document.getElementById("search"),
   title: document.getElementById("mat-title"),
   meta: document.getElementById("mat-meta"),
   metrics: document.getElementById("mat-metrics"),
   plot: document.getElementById("plot"),
-  tabs: Array.from(document.querySelectorAll(".tab")),
 };
 
-/* ---------- helpers ---------- */
+function dataset(kind = state.kind) { return state.data.datasets[kind]; }
 
-// Wrap trailing digit runs in <sub> for chemical formulas (As2 -> As<sub>2</sub>).
-// formula/mpid come from data/data.js, which is generated from local files by
-// tools/prepare_data.py (trusted build output), so innerHTML here is not an
-// injection vector. If the data source ever changes, escape these instead.
-function formulaHTML(formula, mpid) {
-  if (!formula) return mpid;
+// Wrap digit runs in <sub> for chemical formulas (As2 -> As<sub>2</sub>).
+// formula/label/id come from data/data.js (trusted build output of
+// tools/prepare_data.py), so innerHTML here is not an injection vector.
+function formulaHTML(formula, fallback) {
+  if (!formula) return fallback || "";
   return formula.replace(/(\d+)/g, "<sub>$1</sub>");
 }
 
@@ -63,29 +60,18 @@ function fmt(n) {
   return n.toPrecision(3);
 }
 
-function bestBaseline(m) {
-  return m.mse.mat2spec <= m.mse.dostransformer
-    ? { name: "Mat2Spec", mse: m.mse.mat2spec }
-    : { name: "DOSTransformer", mse: m.mse.dostransformer };
-}
-
-function currentData() { return state.data[state.kind]; }
-function xAxisFor(bundle, m) { return bundle.x || m.x; }
-
-/* ---------- list rendering ---------- */
+/* ---------- material list ---------- */
 
 function filteredMaterials() {
-  const bundle = currentData();
+  const ds = dataset();
   const q = state.search.trim().toLowerCase();
-  const items = bundle.materials.filter((m) => {
+  const items = ds.materials.filter((m) => {
     if (!q) return true;
-    return (
-      m.mpid.toLowerCase().includes(q) ||
-      (m.formula && m.formula.toLowerCase().includes(q))
-    );
+    return (m.label && m.label.toLowerCase().includes(q)) ||
+           (m.formula && m.formula.toLowerCase().includes(q)) ||
+           m.id.toLowerCase().includes(q);
   });
-  // Fixed order: best examples first (by rank).
-  return items.slice().sort((a, b) => a.rank - b.rank);
+  return items.slice().sort((a, b) => a.rank - b.rank); // best examples first
 }
 
 function renderList() {
@@ -104,146 +90,174 @@ function renderList() {
     const li = document.createElement("li");
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.className = "mat-item" + (m.mpid === selected ? " is-active" : "");
-    btn.setAttribute("aria-current", m.mpid === selected ? "true" : "false");
-    btn.dataset.mpid = m.mpid;
-    btn.textContent = m.mpid;
-    btn.addEventListener("click", () => select(m.mpid));
+    btn.className = "mat-item" + (m.id === selected ? " is-active" : "");
+    btn.setAttribute("aria-current", m.id === selected ? "true" : "false");
+    btn.dataset.id = m.id;
+    btn.textContent = m.label;
+    btn.addEventListener("click", () => select(m.id));
     li.appendChild(btn);
     frag.appendChild(li);
   });
   el.list.appendChild(frag);
 }
 
-/* ---------- plot rendering ---------- */
+/* ---------- plot ---------- */
 
-function materialByMpid(mpid) {
-  return currentData().materials.find((m) => m.mpid === mpid);
-}
+function materialById(id) { return dataset().materials.find((m) => m.id === id); }
 
 function renderPlot(m) {
-  const bundle = currentData();
-  const ax = AXES[state.kind];
-  const x = xAxisFor(bundle, m);
+  const ds = dataset();
+  const x = ds.x || m.x;
 
-  const traces = TRACES.map((t) => ({
-    x,
-    y: m.curves[t.key],
-    name: t.name,
-    type: "scatter",
-    mode: "lines",
-    line: { color: t.color, width: t.width, dash: t.dash, shape: "spline", smoothing: 0.6 },
-    hovertemplate: `${t.name}<br>%{x:.3g} · %{y:.3g}<extra></extra>`,
-  }));
+  const traces = ds.traces.map((key) => {
+    const st = TRACE_STYLE[key] || { name: key, color: "#888", width: 2, dash: "solid" };
+    return {
+      x, y: m.curves[key], name: st.name, type: "scatter", mode: "lines",
+      line: { color: st.color, width: st.width, dash: st.dash, shape: "spline", smoothing: 0.5 },
+      hovertemplate: `${st.name}<br>%{x:.3g} · %{y:.3g}<extra></extra>`,
+    };
+  });
+  // Spin-resolved DOS stores one channel negative, so allow a signed y-axis.
+  const hasNeg = traces.some((t) => t.y.some((v) => v < 0));
 
   const shapes = [];
-  if (ax.fermi) {
-    shapes.push({
-      type: "line", x0: 0, x1: 0, yref: "paper", y0: 0, y1: 1,
-      line: { color: "#b3b3ba", width: 1, dash: "dot" },
-    });
+  const annotations = [];
+  if (ds.fermi) {
+    shapes.push({ type: "line", x0: 0, x1: 0, yref: "paper", y0: 0, y1: 1,
+      line: { color: "#b3b3ba", width: 1, dash: "dot" } });
+    annotations.push({ x: 0, y: 1, yref: "paper", yanchor: "bottom",
+      text: "E_F", showarrow: false, font: { size: 10, color: "#9a9aa2" } });
+  }
+  if (hasNeg) {
+    shapes.push({ type: "line", xref: "paper", x0: 0, x1: 1, y0: 0, y1: 0,
+      line: { color: "#d0d2d8", width: 1 } });
   }
 
   const layout = {
-    margin: { l: 56, r: 16, t: 10, b: 48 },
-    height: 440,
-    paper_bgcolor: "rgba(0,0,0,0)",
-    plot_bgcolor: "rgba(0,0,0,0)",
+    margin: { l: 58, r: 16, t: 10, b: 48 }, height: 440,
+    paper_bgcolor: "rgba(0,0,0,0)", plot_bgcolor: "rgba(0,0,0,0)",
     font: { family: "-apple-system, Segoe UI, Roboto, sans-serif", size: 13, color: "#34343b" },
-    xaxis: { title: { text: ax.x }, zeroline: false, gridcolor: "#eef0f3", ticks: "outside", ticklen: 4 },
-    yaxis: { title: { text: ax.y }, zeroline: false, rangemode: "tozero", gridcolor: "#eef0f3", ticks: "outside", ticklen: 4 },
+    xaxis: { title: { text: ds.xlabel }, zeroline: false, gridcolor: "#eef0f3", ticks: "outside", ticklen: 4 },
+    yaxis: { title: { text: ds.ylabel }, zeroline: false, rangemode: hasNeg ? "normal" : "tozero",
+             gridcolor: "#eef0f3", ticks: "outside", ticklen: 4 },
     hovermode: "x unified",
     legend: { orientation: "h", y: 1.12, x: 0, font: { size: 12 } },
-    shapes,
-    annotations: ax.fermi
-      ? [{ x: 0, y: 1, yref: "paper", yanchor: "bottom", text: "E_F", showarrow: false, font: { size: 10, color: "#9a9aa2" } }]
-      : [],
+    shapes, annotations,
   };
-
   const config = {
-    responsive: true,
-    displaylogo: false,
+    responsive: true, displaylogo: false,
     modeBarButtonsToRemove: ["select2d", "lasso2d", "autoScale2d", "toggleSpikelines"],
-    toImageButtonOptions: { filename: `${state.kind}_${m.mpid}`, format: "png", scale: 2 },
+    toImageButtonOptions: { filename: `${state.kind}_${m.id}`, format: "png", scale: 2 },
   };
-
   Plotly.react(el.plot, traces, layout, config);
 }
 
-function renderMeta(m) {
-  el.title.innerHTML = `${formulaHTML(m.formula, m.mpid)}`;
-  const cifLink = m.hasCif
-    ? ` · <a href="data/structures/${m.mpid}.cif" download>Download .cif</a>`
-    : "";
-  const mpUrl = `https://next-gen.materialsproject.org/materials/${m.mpid}`;
-  el.meta.innerHTML =
-    `<a href="${mpUrl}" target="_blank" rel="noopener">${m.mpid}</a>` +
-    ` · ${state.kind === "edos" ? "electronic" : "phonon"} DOS` +
-    cifLink;
+/* ---------- meta ---------- */
 
-  const bb = bestBaseline(m);
-  const dsr = m.mse.dos_reasoner;
-  const imp = m.improvement ? ` → <b>${m.improvement}× lower error</b>` : "";
-  el.metrics.innerHTML =
-    `<span class="metric-chip">MSE vs. DFT — ` +
-    `DeepDOSReasoner <b>${fmt(dsr)}</b>, ` +
-    `${bb.name} ${fmt(bb.mse)}</span>${imp}`;
+function mpLink(m) {
+  const id = (m.meta && m.meta.parent) || m.id;
+  return /^mp-\d+$/.test(id) ? `https://next-gen.materialsproject.org/materials/${id}` : null;
 }
 
-function select(mpid) {
-  state.selected[state.kind] = mpid;
-  const m = materialByMpid(mpid);
+function renderMeta(m) {
+  const ds = dataset();
+  el.title.innerHTML = formulaHTML(m.formula, m.label);
+
+  const bits = [];
+  const link = mpLink(m);
+  const idText = (m.meta && m.meta.parent) || m.id;
+  bits.push(link ? `<a href="${link}" target="_blank" rel="noopener">${idText}</a>` : idText);
+  if (ds.kind === "vbgap") {
+    bits.push(`DFT VB-gap: <b>${m.meta.truly_gapped ? "yes" : "no"}</b>`);
+    bits.push(`model-flagged: <b>${m.meta.predicted_gapped ? "yes" : "no"}</b>`);
+  }
+  if (m.meta && m.meta.dft_only) bits.push("DFT spin-resolved (no ML prediction)");
+  if (m.cif) bits.push(`<a href="${m.cif}" download>Download .cif</a>`);
+  el.meta.innerHTML = bits.join(" · ");
+
+  if (m.mse && m.mse.dos_reasoner !== undefined) {
+    let s = `<span class="metric-chip">MSE vs. DFT — DeepDOSReasoner <b>${fmt(m.mse.dos_reasoner)}</b>`;
+    if (m.mse.mat2spec !== undefined && m.mse.dostransformer !== undefined) {
+      const bbName = m.mse.mat2spec <= m.mse.dostransformer ? "Mat2Spec" : "DOSTransformer";
+      s += `, ${bbName} ${fmt(Math.min(m.mse.mat2spec, m.mse.dostransformer))}</span>`;
+      if (m.improvement) s += ` → <b>${m.improvement}× lower error</b>`;
+    } else {
+      s += `</span>`;
+    }
+    el.metrics.innerHTML = s;
+  } else {
+    el.metrics.innerHTML = "";
+  }
+}
+
+function select(id) {
+  state.selected[state.kind] = id;
+  const m = materialById(id);
   if (!m) return;
   renderMeta(m);
   renderPlot(m);
-  // update active styling without rebuilding the whole list
   el.list.querySelectorAll(".mat-item").forEach((b) => {
-    const on = b.dataset.mpid === mpid;
+    const on = b.dataset.id === id;
     b.classList.toggle("is-active", on);
     b.setAttribute("aria-current", on ? "true" : "false");
   });
 }
 
-/* ---------- tab / control wiring ---------- */
+/* ---------- tabs ---------- */
 
-function defaultSelection() {
-  const items = filteredMaterials();
-  const prev = state.selected[state.kind];
-  if (prev && items.some((m) => m.mpid === prev)) return prev;
-  return items.length ? items[0].mpid : null;
-}
-
-function refresh() {
-  renderList();
-  const mpid = defaultSelection();
-  if (mpid) select(mpid);
+function buildTabs() {
+  el.tabs.innerHTML = "";
+  state.data.order.forEach((kind) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "tab";
+    b.setAttribute("role", "tab");
+    b.dataset.kind = kind;
+    b.textContent = state.data.datasets[kind].label;
+    b.addEventListener("click", () => switchKind(kind));
+    el.tabs.appendChild(b);
+  });
 }
 
 function setTabUI(kind) {
-  el.tabs.forEach((t) => {
+  el.tabs.querySelectorAll(".tab").forEach((t) => {
     const on = t.dataset.kind === kind;
     t.classList.toggle("is-active", on);
     t.setAttribute("aria-selected", on ? "true" : "false");
   });
 }
 
-function switchKind(kind, { push = true } = {}) {
-  if (kind === state.kind) return;
+function defaultSelection() {
+  const items = filteredMaterials();
+  const prev = state.selected[state.kind];
+  if (prev && items.some((m) => m.id === prev)) return prev;
+  return items.length ? items[0].id : null;
+}
+
+function refresh() {
+  renderList();
+  const id = defaultSelection();
+  if (id) select(id);
+}
+
+function switchKind(kind) {
+  if (kind === state.kind || !state.data.datasets[kind]) return;
   state.kind = kind;
+  state.search = "";
+  el.search.value = "";
   setTabUI(kind);
-  if (push && window.history && history.replaceState) {
+  if (window.history && history.replaceState) {
     history.replaceState(null, "", `?kind=${kind}#demo`);
   }
   refresh();
 }
 
-function setCtaLink(elm, url, label) {
+/* ---------- CTA links ---------- */
+
+function setCtaLink(elm, url, labelText) {
   if (!elm) return;
-  if (url) {
-    elm.href = url;
-    return;
-  }
-  elm.textContent = `${label} (coming soon)`;
+  if (url) { elm.href = url; return; }
+  elm.textContent = `${labelText} (coming soon)`;
   elm.classList.add("is-disabled");
   elm.setAttribute("aria-disabled", "true");
   elm.setAttribute("tabindex", "-1");
@@ -251,36 +265,26 @@ function setCtaLink(elm, url, label) {
   elm.removeAttribute("target");
 }
 
-function wire() {
-  el.tabs.forEach((t) => t.addEventListener("click", () => switchKind(t.dataset.kind)));
-  el.search.addEventListener("input", () => { state.search = el.search.value; renderList(); });
+/* ---------- init ---------- */
 
-  // Enable a CTA link only if its URL is configured; otherwise mark it
-  // "… (coming soon)" and make it fully inert for mouse AND keyboard (no href,
-  // not focusable), consistent with aria-disabled.
+function init() {
   setCtaLink(document.getElementById("paper-link"), PAPER_URL, "Paper");
   setCtaLink(document.getElementById("code-link"), CODE_URL, "Code");
   setCtaLink(document.getElementById("code-link-foot"), CODE_URL, "Code");
-}
 
-function init() {
-  wire();
-  // Data is provided synchronously by data/data.js (a <script> tag), so the page
-  // works when opened directly from disk (file://) as well as over HTTP.
   const data = window.DDR_DATA;
-  if (!data || !data.edos || !data.phdos) {
+  if (!data || !data.datasets || !Array.isArray(data.order) || !data.order.length) {
     el.list.innerHTML = `<li class="list-empty">Could not load demo data — data/data.js is missing. Run <code>python3 tools/prepare_data.py</code>.</li>`;
     el.title.textContent = "Data unavailable";
     return;
   }
-  state.data.edos = data.edos;
-  state.data.phdos = data.phdos;
-  // Honor a shareable ?kind=phdos / ?kind=edos deep link.
+  state.data = data;
+  buildTabs();
+  el.search.addEventListener("input", () => { state.search = el.search.value; renderList(); });
+
   const wanted = new URLSearchParams(location.search).get("kind");
-  if (wanted === "phdos" || wanted === "edos") {
-    state.kind = wanted;
-    setTabUI(wanted);
-  }
+  state.kind = (wanted && data.datasets[wanted]) ? wanted : data.order[0];
+  setTabUI(state.kind);
   refresh();
 }
 

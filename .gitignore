@@ -1,7 +1,10 @@
-# Raw example source — used only to (re)generate data/ via tools/prepare_data.py.
-# Not served by the site, so kept out of the deployed repo.
+# Raw example source — used only to (re)generate data/data.js via
+# tools/prepare_data.py. Not served by the site, so kept out of the deployed repo.
 plots_best100/
 phdos/
+vb_gap/
+Doped-materials/
+allloy_semiconductor/
 
 # OS / Python cruft
 .DS_Store

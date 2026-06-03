@@ -60,7 +60,7 @@
 <main>
   <!-- Abstract -->
   <section class="section" id="abstract">
-    <div class="wrap narrow">
+    <div class="wrap">
       <h2>Abstract</h2>
       <p><strong>DeepDOSReasoner</strong> predicts a material's electronic and phonon density of states (eDOS and phDOS) directly from its crystal structure — the spectra that govern electronic, optical, vibrational, and thermal behavior, and that normally require costly density functional theory (DFT). It couples a structure-aware neural decoder, which grounds each energy bin in the atoms that contribute at that energy via atom-to-energy source attention, with a physics-grounded reasoning stage that refines the spectrum under a continuity-equation transport enforcing non-negativity and total-state conservation by construction. The result sets a new state of the art across eDOS and phDOS benchmarks while running roughly 10<sup>7</sup>× faster than DFT (~10.5&nbsp;ms per crystal).</p>
     </div>
@@ -104,16 +104,13 @@
   <section class="section alt" id="demo">
     <div class="wrap">
       <h2>Interactive demo</h2>
-      <p class="lead">Explore real model predictions against DFT ground truth and the two strongest crystal-to-spectrum baselines. Click a legend entry to toggle a curve; hover for values; pick any material from the list.</p>
+      <p class="lead">Explore real DeepDOSReasoner predictions against DFT ground truth — across the electronic- and phonon-DOS benchmarks (with the Mat2Spec and DOSTransformer baselines) and four paper case studies. Click a legend entry to toggle a curve, hover for values, and pick any material from the list.</p>
 
-      <div class="tabs" role="tablist" aria-label="Spectrum type">
-        <button class="tab is-active" role="tab" data-kind="edos" aria-selected="true">Electronic DOS</button>
-        <button class="tab" role="tab" data-kind="phdos" aria-selected="false">Phonon DOS</button>
-      </div>
+      <div class="tabs" id="tabs" role="tablist" aria-label="Dataset"></div>
 
       <div class="demo">
         <aside class="picker">
-          <input id="search" type="search" placeholder="Search mp-id…" autocomplete="off" aria-label="Search materials" />
+          <input id="search" type="search" placeholder="Search material…" autocomplete="off" aria-label="Search materials" />
           <ul id="material-list" class="material-list" aria-label="Materials"></ul>
         </aside>
 
@@ -126,7 +123,7 @@
           <p id="mat-metrics" class="mat-metrics"></p>
         </div>
       </div>
-      <p class="caption">Mean-squared error (MSE) is computed per material against the DFT label over the plotted window. Curves are min-max-comparable normalized densities. eDOS examples span the primary benchmark (energies relative to the Fermi level); phDOS examples are drawn from the held-out phonon test set.</p>
+      <p class="caption">MSE is computed per material against the DFT label over the plotted window. The Electronic- and Phonon-DOS tabs are the primary benchmarks and also show the Mat2Spec and DOSTransformer baselines. VB-gap discovery shows predictions on candidates screened for sub-Fermi valence-band gaps (with the DFT and model gap flags). Semiconductors, High-entropy alloy, and Doped materials are case studies — the Doped tab shows DFT spin-resolved total DOS only, as those files contain no ML prediction.</p>
     </div>
   </section>
 </main>
