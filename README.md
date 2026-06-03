@@ -56,10 +56,11 @@ python3 -m http.server 8000
 ## Deployment
 
 Pushing to `main` triggers `.github/workflows/pages.yml`, which deploys the repo
-root to GitHub Pages. The workflow uses `actions/configure-pages` with
-`enablement: true`, so it turns Pages on (source = GitHub Actions) by itself —
-no manual setup needed in most cases.
+root to GitHub Pages.
 
-**Fallback:** if the first run fails at the deploy step (e.g. org policy blocks
-auto-enable), go to **Settings → Pages**, set **Source = GitHub Actions**, then
-re-run the workflow from the **Actions** tab.
+**One-time setup (required):** in the repository **Settings → Pages**, set
+**Source = GitHub Actions**. A workflow's `GITHUB_TOKEN` cannot enable Pages by
+itself (that needs admin rights), so until this toggle is set the
+**Configure Pages** step fails. After enabling it, re-run the latest run from the
+**Actions** tab (or push any commit) and the site deploys to
+`https://gomes-lab.github.io/deepdosreasoner-demo/`.
