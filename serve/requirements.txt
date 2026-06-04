@@ -1,7 +1,16 @@
+# torch and dgl are installed separately in the Dockerfile (CPU wheels need
+# special index URLs). Everything else resolves from PyPI.
+torch_geometric>=2.4
+alignn==2026.5.20
+jarvis-tools
+pymatgen
+scikit-learn
+scipy
+numpy<2
+pandas
+ase
+spglib
+pydantic
 fastapi
 uvicorn[standard]
 python-multipart
-
-# Add these once run_inference() uses the real model:
-# torch
-# pymatgen

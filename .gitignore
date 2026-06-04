@@ -6,6 +6,11 @@ vb_gap/
 doped/
 allloy_semiconductor/
 
+# Model inference packages for the HF Space (multi-GB checkpoints) and the
+# assembled push-ready Space dir — never in the static Pages repo.
+huggingface/
+hf_space_build/
+
 # OS / Python cruft
 .DS_Store
 __pycache__/
