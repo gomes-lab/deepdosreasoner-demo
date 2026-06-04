@@ -199,12 +199,12 @@ def main():
         "edos", ROOT / "plots_best100", "energy_eV",
         {"label": "label", "dos_reasoner": "dos_reasoner",
          "mat2spec": "mat2spec", "dostransformer": "dostransformer"},
-        "Energy E − E_F (eV)", "Density of states (a.u.)", True, "Electronic DOS", True)
+        "Energy E − E_F (eV)", "Density of states (states/eV)", True, "Electronic DOS", True)
     datasets["phdos"] = build_edos_phdos(
         "phdos", ROOT / "phdos", "frequency_cm-1",
         {"label": "DFT_label", "dos_reasoner": "DOS-Reasoner",
          "mat2spec": "Mat2Spec", "dostransformer": "DOSTransformer"},
-        "Frequency (cm⁻¹)", "Phonon DOS (a.u.)", False, "Phonon DOS", True)
+        "Frequency (cm⁻¹)", "Phonon DOS (normalized)", False, "Phonon DOS", True)
     sc_dir = ROOT / "allloy_semiconductor"
     # Paper case study (Fig. 4b): the seven Cu2BaMX4 chalcogenides, M in
     # {Hf,Si,Ti,Zr}, X in {S,Se}. Exclude the other (Ag-based / Co/Cr/Mn) samples.
