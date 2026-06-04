@@ -329,7 +329,13 @@ function initUpload() {
       if (!res.ok) {
         let msg = "HTTP " + res.status;
         try { const e = await res.json(); if (e && e.detail) msg = e.detail; } catch (_) { /* non-JSON */ }
-        if (res.status === 422) msg += " — enter the total valence electrons (NELECT) above and retry.";
+        if (res.status === 422) {
+          // Element outside the label-sum model's training set: reveal the NELECT
+          // field so the user can proceed (predictions there are extrapolation).
+          const f = document.querySelector(".nelect-field");
+          if (f) f.hidden = false;
+          msg += " — this element is outside the model's training set; enter NELECT above and retry (treat the result as unreliable).";
+        }
         throw new Error(msg);
       }
       const data = await res.json();
