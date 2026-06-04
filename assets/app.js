@@ -342,7 +342,13 @@ function initUpload() {
       if (!Array.isArray(data.energy) || !Array.isArray(data.dos)) throw new Error("response missing energy/dos arrays");
       plotUpload(data);
       plot.hidden = false;
-      setStatus(data.formula ? `Predicted DOS for ${data.formula}` : "Predicted DOS");
+      const base = data.formula ? `Predicted DOS for ${data.formula}` : "Predicted DOS";
+      const oot = data.extrapolation_elements || [];
+      if (oot.length) {
+        setStatus(`${base} — ⚠ contains ${oot.join(", ")}, outside the model's training set; treat this prediction as extrapolation.`, "muted");
+      } else {
+        setStatus(base);
+      }
     } catch (err) {
       setStatus("Prediction failed: " + err.message, "error");
     } finally {

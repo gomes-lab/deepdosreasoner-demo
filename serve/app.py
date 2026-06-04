@@ -98,6 +98,16 @@ async def predict(file: UploadFile = File(...), nelect: float | None = Form(defa
     import predict_dos
     dev = device()
 
+    # Elements the label-sum model was NOT trained on (f-elements) -> prediction is
+    # extrapolation. Surfaced in the response so the UI can warn.
+    extrapolation = []
+    _oot = getattr(predict_alignn, "out_of_training_elements", None)
+    if _oot is not None:
+        try:
+            extrapolation = list(_oot(structure))
+        except Exception:  # noqa: BLE001
+            extrapolation = []
+
     # Stage A: ALIGNN predicts N_win = number of states in [E_F-4, E_F+4] eV
     # (an integral, units = states). NELECT auto-computed from composition unless
     # the caller supplied it (needed for f-element POTCARs).
@@ -125,6 +135,7 @@ async def predict(file: UploadFile = File(...), nelect: float | None = Form(defa
         "label_sum": round(float(label_sum), 4),
         "n_win": round(float(n_win), 4),
         "formula": structure.composition.reduced_formula,
+        "extrapolation_elements": extrapolation,
     }
 
 
