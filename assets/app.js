@@ -16,7 +16,7 @@ const CODE_URL = "";  // e.g. "https://github.com/gomes-lab/deep-dos-reasoner"
 // Full URL of the inference endpoint for the "upload a structure" block (see
 // serve/). While empty (""), that block shows a "not connected yet" message.
 //   e.g. "https://gomes-lab-deepdosreasoner.hf.space/predict"
-const PREDICT_API = "";
+const PREDICT_API = "https://yingheng-deepdosreasoner-demo.hf.space/predict";
 /* -------------------------------------------------------------------------- */
 
 // Per-curve styling, keyed by the trace key a dataset lists in its `traces`.
