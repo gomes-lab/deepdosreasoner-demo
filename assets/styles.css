@@ -113,6 +113,7 @@ h1, h2, h3 { line-height: 1.2; letter-spacing: -0.01em; }
 .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 .btn-primary:hover { background: var(--accent-dark); }
 .btn.is-disabled { opacity: .55; pointer-events: none; }
+.btn:disabled { opacity: .5; cursor: not-allowed; box-shadow: none; transform: none; }
 .status-note { font-size: 0.82rem; color: var(--faint); margin: 8px 0 0; }
 
 /* ---------- Sections ---------- */
@@ -243,6 +244,32 @@ h1, h2, h3 { line-height: 1.2; letter-spacing: -0.01em; }
 .metric-chip { display: inline-block; font-variant-numeric: tabular-nums; }
 
 .caption { font-size: 0.82rem; color: var(--faint); margin-top: 22px; }
+
+/* ---------- Upload & predict ---------- */
+.uploader { max-width: 760px; }
+.dropzone {
+  border: 2px dashed var(--line);
+  border-radius: var(--radius);
+  padding: 34px 24px;
+  text-align: center;
+  cursor: pointer;
+  background: var(--bg);
+  transition: border-color .15s, background .15s;
+}
+.dropzone:hover, .dropzone:focus, .dropzone.is-drag {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  outline: none;
+}
+.dz-icon { display: block; font-size: 1.6rem; color: var(--accent); margin-bottom: 6px; }
+.dz-text { color: var(--muted); }
+.dz-text code { font-family: var(--mono); font-size: 0.92em; }
+.dz-file { display: block; margin-top: 8px; font-weight: 600; color: var(--ink); }
+.uploader-actions { display: flex; align-items: center; gap: 14px; margin: 16px 0; flex-wrap: wrap; }
+.predict-status { font-size: 0.9rem; color: var(--muted); }
+.predict-status.muted { color: var(--faint); }
+.predict-status.error { color: var(--accent-dark); }
+#upload-plot { height: 440px; }
 
 /* ---------- Footer ---------- */
 .footer { padding: 56px 0 72px; border-top: 1px solid var(--line); }

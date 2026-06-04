@@ -13,6 +13,10 @@
  *              once it is public — it currently 404s, so it's disabled for now). */
 const PAPER_URL = ""; // e.g. "https://arxiv.org/abs/XXXX.XXXXX"
 const CODE_URL = "";  // e.g. "https://github.com/gomes-lab/deep-dos-reasoner"
+// Full URL of the inference endpoint for the "upload a structure" block (see
+// serve/). While empty (""), that block shows a "not connected yet" message.
+//   e.g. "https://gomes-lab-deepdosreasoner.hf.space/predict"
+const PREDICT_API = "";
 /* -------------------------------------------------------------------------- */
 
 // Per-curve styling, keyed by the trace key a dataset lists in its `traces`.
@@ -257,6 +261,82 @@ function setCtaLink(elm, url, labelText) {
   elm.removeAttribute("target");
 }
 
+/* ---------- upload & predict ---------- */
+
+function plotUpload(data) {
+  const node = document.getElementById("upload-plot");
+  const traces = [];
+  if (Array.isArray(data.dft)) {
+    traces.push({ x: data.energy, y: data.dft, name: "DFT (ground truth)", type: "scatter",
+      mode: "lines", line: { color: TRACE_STYLE.label.color, width: 3, shape: "spline", smoothing: 0.5 } });
+  }
+  traces.push({ x: data.energy, y: data.dos, name: "DeepDOSReasoner (predicted)", type: "scatter",
+    mode: "lines", line: { color: TRACE_STYLE.dos_reasoner.color, width: 2.6, shape: "spline", smoothing: 0.5 },
+    hovertemplate: "%{x:.3g} · %{y:.3g}<extra></extra>" });
+  const layout = {
+    margin: { l: 58, r: 16, t: 10, b: 48 }, height: 440,
+    paper_bgcolor: "rgba(0,0,0,0)", plot_bgcolor: "rgba(0,0,0,0)",
+    font: { family: "-apple-system, Segoe UI, Roboto, sans-serif", size: 13, color: "#34343b" },
+    xaxis: { title: { text: "Energy E − E_F (eV)" }, zeroline: false, gridcolor: "#eef0f3", ticks: "outside", ticklen: 4 },
+    yaxis: { title: { text: "Density of states (a.u.)" }, zeroline: false, rangemode: "tozero", gridcolor: "#eef0f3", ticks: "outside", ticklen: 4 },
+    hovermode: "x unified",
+    legend: { orientation: "h", y: 1.12, x: 0, font: { size: 12 } },
+    shapes: [{ type: "line", x0: 0, x1: 0, yref: "paper", y0: 0, y1: 1, line: { color: "#b3b3ba", width: 1, dash: "dot" } }],
+  };
+  Plotly.react(node, traces, layout, { responsive: true, displaylogo: false,
+    modeBarButtonsToRemove: ["select2d", "lasso2d", "autoScale2d", "toggleSpikelines"] });
+}
+
+function initUpload() {
+  const dz = document.getElementById("dropzone");
+  const input = document.getElementById("file-input");
+  const btn = document.getElementById("predict-btn");
+  const status = document.getElementById("predict-status");
+  const plot = document.getElementById("upload-plot");
+  const fileLabel = document.getElementById("dz-file");
+  if (!dz || !input || !btn) return;
+  let file = null;
+
+  const setStatus = (msg, cls) => { status.textContent = msg; status.className = "predict-status" + (cls ? " " + cls : ""); };
+  if (!PREDICT_API) setStatus("Live prediction isn't connected yet — set PREDICT_API in assets/app.js once the model endpoint is deployed.", "muted");
+
+  function setFile(f) {
+    file = f || null;
+    fileLabel.textContent = file ? file.name : "";
+    btn.disabled = !(file && PREDICT_API);
+    if (file && !PREDICT_API) setStatus(`Selected ${file.name} — endpoint not connected yet.`, "muted");
+  }
+
+  dz.addEventListener("click", () => input.click());
+  dz.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); input.click(); } });
+  input.addEventListener("change", () => setFile(input.files[0]));
+  ["dragover", "dragenter"].forEach((ev) => dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.add("is-drag"); }));
+  ["dragleave", "dragend"].forEach((ev) => dz.addEventListener(ev, () => dz.classList.remove("is-drag")));
+  dz.addEventListener("drop", (e) => { e.preventDefault(); dz.classList.remove("is-drag"); if (e.dataTransfer.files.length) setFile(e.dataTransfer.files[0]); });
+
+  btn.addEventListener("click", async () => {
+    if (!file || !PREDICT_API) return;
+    btn.disabled = true;
+    setStatus("Predicting…");
+    plot.hidden = true;
+    try {
+      const fd = new FormData();
+      fd.append("file", file, file.name);
+      const res = await fetch(PREDICT_API, { method: "POST", body: fd });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const data = await res.json();
+      if (!Array.isArray(data.energy) || !Array.isArray(data.dos)) throw new Error("response missing energy/dos arrays");
+      plotUpload(data);
+      plot.hidden = false;
+      setStatus(data.formula ? `Predicted DOS for ${data.formula}` : "Predicted DOS");
+    } catch (err) {
+      setStatus("Prediction failed: " + err.message, "error");
+    } finally {
+      btn.disabled = !(file && PREDICT_API);
+    }
+  });
+}
+
 /* ---------- init ---------- */
 
 function init() {
@@ -264,6 +344,8 @@ function init() {
   setCtaLink(document.getElementById("paper-link-foot"), PAPER_URL, "Paper");
   setCtaLink(document.getElementById("code-link"), CODE_URL, "Code");
   setCtaLink(document.getElementById("code-link-foot"), CODE_URL, "Code");
+
+  initUpload();
 
   const data = window.DDR_DATA;
   if (!data || !data.datasets || !Array.isArray(data.order) || !data.order.length) {

@@ -1,0 +1,7 @@
+fastapi
+uvicorn[standard]
+python-multipart
+
+# Add these once run_inference() uses the real model:
+# torch
+# pymatgen

@@ -126,6 +126,28 @@
       <p class="caption">MSE is computed per material against the DFT label over the plotted window. The Electronic- and Phonon-DOS tabs are the primary benchmarks and also show the Mat2Spec and DOSTransformer baselines. Semiconductors (seven Cu<sub>2</sub>BaMX<sub>4</sub> chalcogenides), the CuPtFeCoNi High-entropy alloy, and the Ga-for-In substituted Doped materials are paper case studies, each comparing DeepDOSReasoner against DFT.</p>
     </div>
   </section>
+
+  <!-- Upload & predict -->
+  <section class="section" id="upload">
+    <div class="wrap">
+      <h2>Try it on your structure</h2>
+      <p class="lead">Upload a crystal structure (CIF or VASP POSCAR/CONTCAR) and get its predicted electronic DOS from DeepDOSReasoner. Files are sent to the inference service for prediction and are not stored.</p>
+
+      <div class="uploader">
+        <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Upload a structure file">
+          <input id="file-input" type="file" accept=".cif,.vasp,.poscar,.txt,POSCAR,CONTCAR" hidden />
+          <span class="dz-icon" aria-hidden="true">&#11014;</span>
+          <span class="dz-text">Drag &amp; drop a <code>.cif</code> or POSCAR here, or <u>browse</u></span>
+          <span id="dz-file" class="dz-file"></span>
+        </div>
+        <div class="uploader-actions">
+          <button id="predict-btn" class="btn btn-primary" type="button" disabled>Predict DOS</button>
+          <span id="predict-status" class="predict-status"></span>
+        </div>
+        <div id="upload-plot" class="plot" hidden></div>
+      </div>
+    </div>
+  </section>
 </main>
 
 <footer class="footer">
