@@ -141,9 +141,12 @@
           <span id="dz-file" class="dz-file"></span>
         </div>
         <div class="uploader-actions">
+          <label class="nelect-field" title="Total valence electrons (VASP NELECT). Leave blank to auto-compute from composition; required for f-element structures (lanthanides/actinides), where auto-compute isn't available.">
+            NELECT <input id="nelect-input" type="number" min="0" step="any" placeholder="auto" autocomplete="off" />
+          </label>
           <button id="predict-btn" class="btn btn-primary" type="button" disabled>Predict DOS</button>
-          <span id="predict-status" class="predict-status"></span>
         </div>
+        <p id="predict-status" class="predict-status"></p>
         <div id="upload-plot" class="plot" hidden></div>
       </div>
     </div>

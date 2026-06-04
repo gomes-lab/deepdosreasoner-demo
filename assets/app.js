@@ -322,8 +322,16 @@ function initUpload() {
     try {
       const fd = new FormData();
       fd.append("file", file, file.name);
+      const nelEl = document.getElementById("nelect-input");
+      const nel = nelEl && nelEl.value.trim();
+      if (nel) fd.append("nelect", nel);
       const res = await fetch(PREDICT_API, { method: "POST", body: fd });
-      if (!res.ok) throw new Error("HTTP " + res.status);
+      if (!res.ok) {
+        let msg = "HTTP " + res.status;
+        try { const e = await res.json(); if (e && e.detail) msg = e.detail; } catch (_) { /* non-JSON */ }
+        if (res.status === 422) msg += " — enter the total valence electrons (NELECT) above and retry.";
+        throw new Error(msg);
+      }
       const data = await res.json();
       if (!Array.isArray(data.energy) || !Array.isArray(data.dos)) throw new Error("response missing energy/dos arrays");
       plotUpload(data);
