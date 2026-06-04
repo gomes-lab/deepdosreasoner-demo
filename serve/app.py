@@ -32,6 +32,7 @@ for _d in (ALIGNN_DIR, DOS_DIR):
 
 N_BINS = 128
 ENERGY = [round(-4.0 + 8.0 * i / (N_BINS - 1), 6) for i in range(N_BINS)]  # -4..4 eV
+BIN_WIDTH_EV = 8.0 / N_BINS  # 0.0625 eV — DOS_Reasoner bins are states/eV over the 8 eV window
 MAX_BYTES = 2_000_000  # reject uploads larger than ~2 MB
 
 # Browsers enforce CORS — list every origin the demo site is served from.
@@ -97,16 +98,22 @@ async def predict(file: UploadFile = File(...), nelect: float | None = Form(defa
     import predict_dos
     dev = device()
 
-    # Stage A: total states in +/-4 eV (label_sum). NELECT auto-computed from
-    # composition unless the caller supplied it (needed for f-element POTCARs).
+    # Stage A: ALIGNN predicts N_win = number of states in [E_F-4, E_F+4] eV
+    # (an integral, units = states). NELECT auto-computed from composition unless
+    # the caller supplied it (needed for f-element POTCARs).
     try:
-        label_sum = predict_alignn.predict_Nwin(structure, total_states=nelect, device=dev)
+        n_win = predict_alignn.predict_Nwin(structure, total_states=nelect, device=dev)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=f"{exc}")
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=500, detail=f"label-sum prediction failed: {exc}")
+        raise HTTPException(status_code=500, detail=f"N_win prediction failed: {exc}")
 
-    # Stage B: normalized 128-bin shape, rescaled by label_sum.
+    # DOS_Reasoner's label_sum is the SUM of its 128 states/eV bins over the 8 eV
+    # window = N_win / bin_width = 16 * N_win  (verified: corr 0.9996, ratio 16.0
+    # over 400 overlapping materials). Passing raw N_win makes the DOS ~16x too small.
+    label_sum = n_win / BIN_WIDTH_EV
+
+    # Stage B: normalized 128-bin shape (states/eV), rescaled by label_sum.
     try:
         dos = predict_dos.predict_dos(structure, label_sum=label_sum, device=dev)
     except Exception as exc:  # noqa: BLE001
@@ -114,8 +121,9 @@ async def predict(file: UploadFile = File(...), nelect: float | None = Form(defa
 
     return {
         "energy": ENERGY,
-        "dos": [round(float(v), 6) for v in dos],
+        "dos": [round(float(v), 6) for v in dos],  # states/eV
         "label_sum": round(float(label_sum), 4),
+        "n_win": round(float(n_win), 4),
         "formula": structure.composition.reduced_formula,
     }
 

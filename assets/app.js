@@ -278,7 +278,7 @@ function plotUpload(data) {
     paper_bgcolor: "rgba(0,0,0,0)", plot_bgcolor: "rgba(0,0,0,0)",
     font: { family: "-apple-system, Segoe UI, Roboto, sans-serif", size: 13, color: "#34343b" },
     xaxis: { title: { text: "Energy E − E_F (eV)" }, zeroline: false, gridcolor: "#eef0f3", ticks: "outside", ticklen: 4 },
-    yaxis: { title: { text: "Density of states (a.u.)" }, zeroline: false, rangemode: "tozero", gridcolor: "#eef0f3", ticks: "outside", ticklen: 4 },
+    yaxis: { title: { text: "DOS (states/eV)" }, zeroline: false, rangemode: "tozero", gridcolor: "#eef0f3", ticks: "outside", ticklen: 4 },
     hovermode: "x unified",
     legend: { orientation: "h", y: 1.12, x: 0, font: { size: 12 } },
     shapes: [{ type: "line", x0: 0, x1: 0, yref: "paper", y0: 0, y1: 1, line: { color: "#b3b3ba", width: 1, dash: "dot" } }],
