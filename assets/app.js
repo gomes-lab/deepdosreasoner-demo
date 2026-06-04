@@ -261,6 +261,7 @@ function setCtaLink(elm, url, labelText) {
 
 function init() {
   setCtaLink(document.getElementById("paper-link"), PAPER_URL, "Paper");
+  setCtaLink(document.getElementById("paper-link-foot"), PAPER_URL, "Paper");
   setCtaLink(document.getElementById("code-link"), CODE_URL, "Code");
   setCtaLink(document.getElementById("code-link-foot"), CODE_URL, "Code");
 
