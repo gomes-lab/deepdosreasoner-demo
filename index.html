@@ -104,6 +104,12 @@
           <p>The normalized DOS is treated as a probability density and refined by a learned <strong>continuity-equation transport</strong> with no-flux boundaries. A CDF-based upwind scheme moves spectral mass along the energy axis while keeping the spectrum non-negative and conserving total states <em>by construction</em>. Mass can only be redistributed — never created or destroyed — so the output is a valid density at every step.</p>
         </article>
       </div>
+
+      <figure class="arch-figure">
+        <img src="assets/figure3-vbgap-discovery.png" loading="lazy"
+             alt="Twelve panels of predicted electronic DOS (DeepDOSReasoner, blue) overlaid on DFT ground truth (grey) for out-of-distribution candidate materials; shaded windows just below the Fermi level mark the rare suppressed-density valence-band gaps, which the predictions reproduce while keeping band edges sharp." />
+        <figcaption><strong>Why the reasoning stage matters.</strong> Predicted eDOS (blue) vs. DFT (grey) for twelve out-of-distribution candidates flagged in a valence-band-gap discovery screen. The constraint-preserving reasoning stage keeps band edges sharp and reproduces the rare suppressed-density windows just below the Fermi level (shaded) — the near-Fermi valence-band gaps that pointwise-regression baselines blur away — on compositions the model never saw labeled.</figcaption>
+      </figure>
     </div>
   </section>
 
