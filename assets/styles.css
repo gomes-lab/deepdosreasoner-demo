@@ -242,6 +242,32 @@ h1, h2, h3 { line-height: 1.2; letter-spacing: -0.01em; }
 .mat-meta { margin: 2px 0 0; color: var(--muted); font-size: 0.9rem; }
 .mat-meta a { font-weight: 600; }
 .plot { width: 100%; height: 440px; }
+
+/* DOS plot + 3D structure side by side; collapses to one column when narrow
+   or when the active dataset carries no structures (.has-struct toggled in JS). */
+.viewer-body { display: grid; grid-template-columns: 1fr; gap: 18px; align-items: start; }
+.viewer-body.has-struct { grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); }
+.viewer-body:not(.has-struct) .struct { display: none; }
+@media (max-width: 720px) { .viewer-body.has-struct { grid-template-columns: 1fr; } }
+
+/* ---------- 3D crystal structure (3Dmol) ---------- */
+.struct { margin: 0; min-width: 0; }
+.struct-view {
+  position: relative;
+  width: 100%;
+  height: 380px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  overflow: hidden;
+}
+.struct-view canvas { border-radius: var(--radius); }
+.struct-cap { font-size: 0.78rem; color: var(--faint); margin: 8px 0 0; text-align: center; }
+.struct-empty {
+  display: flex; align-items: center; justify-content: center;
+  height: 100%; padding: 0 18px;
+  color: var(--faint); font-size: 0.85rem; text-align: center;
+}
 .mat-metrics { margin: 10px 0 0; font-size: 0.9rem; color: var(--muted); }
 .mat-metrics b { color: var(--accent-dark); }
 .metric-chip { display: inline-block; font-variant-numeric: tabular-nums; }
@@ -277,6 +303,13 @@ h1, h2, h3 { line-height: 1.2; letter-spacing: -0.01em; }
 .predict-status.muted { color: var(--faint); }
 .predict-status.error { color: var(--accent-dark); }
 #upload-plot { height: 440px; }
+
+/* Uploaded structure preview + predicted-DOS plot: side by side when both are
+   present, centered when only the structure preview is shown. */
+.upload-results { display: flex; flex-wrap: wrap; gap: 18px; justify-content: center; align-items: stretch; margin-top: 12px; }
+.upload-results .struct { flex: 0 0 320px; max-width: 100%; }
+.upload-results #upload-plot { flex: 1 1 380px; min-width: 280px; width: auto; }
+.upload-results .struct-view { height: 320px; }
 
 /* ---------- Footer ---------- */
 .footer { padding: 56px 0 72px; border-top: 1px solid var(--line); }

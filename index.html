@@ -79,8 +79,8 @@
       <div class="stats">
         <div class="stat"><span class="stat-num">&#8595;13.3%</span><span class="stat-label">eDOS prediction <em>(MSE vs. best baseline)</em></span></div>
         <div class="stat"><span class="stat-num">&#8595;20%</span><span class="stat-label">phDOS prediction <em>(MSE vs. best baseline)</em></span></div>
-        <div class="stat"><span class="stat-num">0.915</span><span class="stat-label">VB-gap identification <em>(precision)</em></span></div>
-        <div class="stat"><span class="stat-num">+48%</span><span class="stat-label">VB-gap discovery <em>(MCC vs. best baseline)</em></span></div>
+        <div class="stat"><span class="stat-num">0.904</span><span class="stat-label">VB-gap identification <em>(precision)</em></span></div>
+        <div class="stat"><span class="stat-num">+18.6%</span><span class="stat-label">VB-gap discovery <em>(MCC vs. best baseline)</em></span></div>
         <div class="stat"><span class="stat-num">~10<sup>7</sup>&times;</span><span class="stat-label">faster than DFT <em>(~10.5&nbsp;ms / crystal)</em></span></div>
         <div class="stat"><span class="stat-num">~25%</span><span class="stat-label">of training data to beat the strongest baseline</span></div>
       </div>
@@ -117,7 +117,7 @@
   <section class="section alt" id="demo">
     <div class="wrap">
       <h2>Interactive demo</h2>
-      <p class="lead">Explore real DeepDOSReasoner predictions against DFT ground truth — across the electronic- and phonon-DOS benchmarks (with the Mat2Spec and DOSTransformer baselines) and three paper case studies. Click a legend entry to toggle a curve, hover for values, and pick any material from the list.</p>
+      <p class="lead">Explore real DeepDOSReasoner predictions against DFT ground truth — across the electronic- and phonon-DOS benchmarks (with the Mat2Spec and DOSTransformer baselines) and three paper case studies. Click a legend entry to toggle a curve, hover for values, and pick any material from the list. Each benchmark entry also shows its crystal structure in an interactive 3D viewer beside the spectrum.</p>
 
       <div class="tabs" id="tabs" role="tablist" aria-label="Dataset"></div>
 
@@ -132,7 +132,13 @@
             <h3 id="mat-title">—</h3>
             <p id="mat-meta" class="mat-meta"></p>
           </div>
-          <div id="plot" class="plot" aria-label="Density of states plot"></div>
+          <div class="viewer-body">
+            <div id="plot" class="plot" aria-label="Density of states plot"></div>
+            <figure class="struct">
+              <div id="struct-view" class="struct-view" aria-label="3D crystal structure"></div>
+              <figcaption id="struct-cap" class="struct-cap">Drag to rotate · scroll to zoom</figcaption>
+            </figure>
+          </div>
           <p id="mat-metrics" class="mat-metrics"></p>
         </div>
       </div>
@@ -160,7 +166,13 @@
           <button id="predict-btn" class="btn btn-primary" type="button" disabled>Predict DOS</button>
         </div>
         <p id="predict-status" class="predict-status"></p>
-        <div id="upload-plot" class="plot" hidden></div>
+        <div class="upload-results">
+          <figure class="struct" id="upload-struct-wrap" hidden>
+            <div id="upload-struct" class="struct-view"></div>
+            <figcaption class="struct-cap">Uploaded structure · drag to rotate</figcaption>
+          </figure>
+          <div id="upload-plot" class="plot" hidden></div>
+        </div>
       </div>
     </div>
   </section>
@@ -187,7 +199,9 @@
 </footer>
 
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+<script src="https://cdn.jsdelivr.net/npm/3dmol@2.4.2/build/3Dmol-min.js"></script>
 <script src="data/data.js"></script>
+<script src="data/structures.js"></script>
 <script src="assets/app.js"></script>
 </body>
 </html>

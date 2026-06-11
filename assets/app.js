@@ -154,6 +154,76 @@ function renderPlot(m) {
   Plotly.react(el.plot, traces, layout, config);
 }
 
+/* ---------- 3D crystal structure (3Dmol) ----------
+ * Structures are embedded in data/structures.js (window.DDR_STRUCTURES, keyed
+ * by material id = mp-id) so the viewer works offline (file://), matching the
+ * no-fetch design of data.js. Only the eDOS/phDOS benchmark entries carry a
+ * CIF; case-study tabs have none, so the structure panel is hidden for them. */
+const STRUCTURES = (typeof window !== "undefined" && window.DDR_STRUCTURES) || {};
+let demoViewer = null;
+let uploadViewer = null;
+
+function has3Dmol() { return typeof window !== "undefined" && !!window.$3Dmol; }
+
+function newViewer(host) {
+  return window.$3Dmol.createViewer(host, { backgroundColor: "white", antialias: true });
+}
+
+function styleCrystal(viewer) {
+  viewer.setStyle({}, { sphere: { scale: 0.33 }, stick: { radius: 0.14 } });
+  try { viewer.addUnitCell(); } catch (_) { /* no cell params */ }
+  viewer.zoomTo();
+  viewer.zoom(1.1);
+  viewer.render();
+  viewer.resize();
+}
+
+// Load `text` (CIF/VASP) into a viewer bound to `host`. Returns the viewer, or
+// null with an empty-state message painted into host. `reuse` is the viewer to
+// clear and reuse (its canvas stays in host); pass null to create a fresh one.
+function loadStructure(host, text, format, reuse, emptyMsg) {
+  if (!host) return null;
+  if (!has3Dmol() || !text) {
+    host.innerHTML = `<div class="struct-empty">${!has3Dmol() ? "3D viewer failed to load." : (emptyMsg || "3D structure not available for this entry.")}</div>`;
+    return null;
+  }
+  let viewer = reuse;
+  if (viewer) { viewer.clear(); }
+  else { host.innerHTML = ""; viewer = newViewer(host); }
+
+  const tryFormats = format === "vasp" ? ["vasp", "cif"] : ["cif", "vasp"];
+  let ok = false;
+  for (const fmt of tryFormats) {
+    viewer.clear();
+    let model = null;
+    try { model = viewer.addModel(text, fmt); } catch (_) { model = null; }
+    const atoms = model ? model.selectedAtoms({}) : [];
+    if (atoms.length) { ok = true; break; }
+  }
+  if (!ok) {
+    host.innerHTML = `<div class="struct-empty">Couldn't parse this structure for preview.</div>`;
+    return null;
+  }
+  styleCrystal(viewer);
+  return viewer;
+}
+
+function showDemoStructure(m) {
+  const host = document.getElementById("struct-view");
+  const cap = document.getElementById("struct-cap");
+  if (!host) return;
+  const cif = m && STRUCTURES[m.id];
+  demoViewer = loadStructure(host, cif, "cif", demoViewer, "3D structure not bundled for this case study.");
+  if (cap) cap.style.visibility = demoViewer ? "visible" : "hidden";
+}
+
+function applyStructLayout() {
+  const body = document.querySelector(".viewer-body");
+  if (!body) return;
+  const has = dataset().materials.some((m) => STRUCTURES[m.id]);
+  body.classList.toggle("has-struct", has);
+}
+
 /* ---------- meta ---------- */
 
 function mpLink(m) {
@@ -192,6 +262,7 @@ function select(id) {
   if (!m) return;
   renderMeta(m);
   renderPlot(m);
+  showDemoStructure(m);
   el.list.querySelectorAll(".mat-item").forEach((b) => {
     const on = b.dataset.id === id;
     b.classList.toggle("is-active", on);
@@ -231,6 +302,7 @@ function defaultSelection() {
 }
 
 function refresh() {
+  applyStructLayout();
   renderList();
   const id = defaultSelection();
   if (id) select(id);
@@ -262,6 +334,36 @@ function setCtaLink(elm, url, labelText) {
 }
 
 /* ---------- upload & predict ---------- */
+
+function readFileText(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = () => reject(r.error || new Error("read failed"));
+    r.readAsText(file);
+  });
+}
+
+// Guess 3Dmol format from filename/content (CIF vs VASP POSCAR/CONTCAR).
+function guessFormat(name, text) {
+  const n = (name || "").toLowerCase();
+  if (n.endsWith(".cif") || /_cell_length|_atom_site/.test(text)) return "cif";
+  if (n.endsWith(".vasp") || n.endsWith(".poscar") || /poscar|contcar/.test(n)) return "vasp";
+  const lines = (text || "").split(/\r?\n/);
+  if (lines.length > 7 && /^\s*[-+]?\d*\.?\d+\s*$/.test(lines[1] || "")) return "vasp"; // scale on line 2
+  return "cif";
+}
+
+async function showUploadStructure(file) {
+  const wrap = document.getElementById("upload-struct-wrap");
+  const host = document.getElementById("upload-struct");
+  if (!wrap || !host) return;
+  if (!file) { wrap.hidden = true; return; }
+  wrap.hidden = false;
+  let text;
+  try { text = await readFileText(file); } catch (_) { wrap.hidden = true; return; }
+  uploadViewer = loadStructure(host, text, guessFormat(file.name, text), uploadViewer);
+}
 
 function plotUpload(data) {
   const node = document.getElementById("upload-plot");
@@ -305,6 +407,8 @@ function initUpload() {
     fileLabel.textContent = file ? file.name : "";
     btn.disabled = !(file && PREDICT_API);
     if (file && !PREDICT_API) setStatus(`Selected ${file.name} — endpoint not connected yet.`, "muted");
+    plot.hidden = true;            // clear any previous prediction
+    showUploadStructure(file);     // immediate 3D preview of the uploaded crystal
   }
 
   dz.addEventListener("click", () => input.click());
@@ -381,6 +485,15 @@ function init() {
   state.kind = (wanted && data.datasets[wanted]) ? wanted : data.order[0];
   setTabUI(state.kind);
   refresh();
+
+  let resizeTimer = null;
+  window.addEventListener("resize", () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      if (demoViewer) try { demoViewer.resize(); } catch (_) {}
+      if (uploadViewer) try { uploadViewer.resize(); } catch (_) {}
+    }, 150);
+  });
 }
 
 document.addEventListener("DOMContentLoaded", init);

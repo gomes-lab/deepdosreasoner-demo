@@ -234,6 +234,17 @@ def main():
             shutil.copy2(cif, STRUCT_OUT / cif.name); n += 1
     print(f"[cif] copied {n} structures -> {STRUCT_OUT.relative_to(ROOT)}")
 
+    # embed CIF text in data/structures.js (window.DDR_STRUCTURES) so the 3D
+    # crystal viewer (3Dmol) works offline, like data.js. Keyed by material id.
+    structures = {}
+    for cif in sorted(STRUCT_OUT.glob("*.cif")):
+        structures[cif.stem] = cif.read_text()
+    struct_js = DATA_DIR / "structures.js"
+    struct_js.write_text(
+        "window.DDR_STRUCTURES = " + json.dumps(structures, separators=(",", ":")) + ";\n")
+    print(f"[struct] wrote {struct_js.relative_to(ROOT)} "
+          f"({len(structures)} structures, {struct_js.stat().st_size/1024:.0f} KB)")
+
 
 if __name__ == "__main__":
     main()
