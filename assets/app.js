@@ -172,13 +172,23 @@ function newViewer(host) {
   return v;
 }
 
-// Ball-and-stick with a subtle unit cell and a gentle auto-spin for a cleaner,
-// more dynamic look than the default sphere/stick rendering.
+// Render as a periodic crystal rather than a lone molecule: replicate the unit
+// cell into a small supercell (so the lattice repeat is visible), draw the
+// unit-cell box, and use atom-dominant ball-and-stick (big spheres, thin bonds)
+// so it doesn't read like an organic molecule. 3Dmol bonds are distance-based,
+// so the periodic context is what makes it look crystalline.
 function styleCrystal(viewer) {
-  viewer.setStyle({}, { sphere: { scale: 0.30 }, stick: { radius: 0.16 } });
-  try { viewer.addUnitCell(undefined, { box: { color: "#b9bdc6" } }); } catch (_) { /* no cell params */ }
+  const model = viewer.getModel();
+  let n = 0;
+  try { n = model.selectedAtoms({}).length; } catch (_) {}
+  const reps = n && n <= 8 ? [2, 2, 2] : n && n <= 20 ? [2, 2, 1] : [1, 1, 1];
+  if (reps[0] * reps[1] * reps[2] > 1) {
+    try { viewer.replicateUnitCell(reps[0], reps[1], reps[2], model, true); } catch (_) {}
+  }
+  viewer.setStyle({}, { sphere: { scale: 0.34 }, stick: { radius: 0.11 } });
+  try { viewer.addUnitCell(model, { box: { color: "#aeb3bd" } }); } catch (_) { /* no cell params */ }
   viewer.zoomTo();
-  viewer.zoom(1.18);
+  viewer.zoom(1.05);
   viewer.spin("y", 0.4);
   viewer.render();
   viewer.resize();
@@ -228,9 +238,12 @@ function showDemoStructure(m) {
 
 function applyStructLayout() {
   const wrap = document.getElementById("demo-struct-wrap");
-  if (!wrap) return;
-  // Show the structure rail only on tabs that actually carry CIFs (eDOS/phDOS).
-  wrap.hidden = !dataset().materials.some((m) => STRUCTURES[m.id]);
+  const picker = document.querySelector(".picker");
+  // Show the structure rail only on tabs that actually carry CIFs (eDOS/phDOS),
+  // and shorten the material list there so the rail height matches the DOS plot.
+  const has = dataset().materials.some((m) => STRUCTURES[m.id]);
+  if (wrap) wrap.hidden = !has;
+  if (picker) picker.classList.toggle("with-struct", has);
 }
 
 /* ---------- meta ---------- */

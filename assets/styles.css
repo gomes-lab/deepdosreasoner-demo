@@ -211,6 +211,9 @@ h1, h2, h3 { line-height: 1.2; letter-spacing: -0.01em; }
   max-height: 460px;
   overflow-y: auto;
 }
+/* On eDOS/phDOS tabs the left rail also holds the 3D structure, so shorten the
+   list to keep the rail roughly as tall as the DOS plot (no blank gap below). */
+.picker.with-struct .material-list { max-height: 200px; }
 .mat-item {
   width: 100%;
   text-align: left;
