@@ -125,6 +125,10 @@
         <aside class="picker">
           <input id="search" type="search" placeholder="Search material…" autocomplete="off" aria-label="Search materials" />
           <ul id="material-list" class="material-list" aria-label="Materials"></ul>
+          <figure class="struct" id="demo-struct-wrap">
+            <div id="struct-view" class="struct-view" aria-label="3D crystal structure"></div>
+            <figcaption id="struct-cap" class="struct-cap">Drag to rotate · scroll to zoom</figcaption>
+          </figure>
         </aside>
 
         <div class="viewer">
@@ -132,13 +136,7 @@
             <h3 id="mat-title">—</h3>
             <p id="mat-meta" class="mat-meta"></p>
           </div>
-          <div class="viewer-body">
-            <div id="plot" class="plot" aria-label="Density of states plot"></div>
-            <figure class="struct">
-              <div id="struct-view" class="struct-view" aria-label="3D crystal structure"></div>
-              <figcaption id="struct-cap" class="struct-cap">Drag to rotate · scroll to zoom</figcaption>
-            </figure>
-          </div>
+          <div id="plot" class="plot" aria-label="Density of states plot"></div>
           <p id="mat-metrics" class="mat-metrics"></p>
         </div>
       </div>

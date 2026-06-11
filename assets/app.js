@@ -166,14 +166,20 @@ let uploadViewer = null;
 function has3Dmol() { return typeof window !== "undefined" && !!window.$3Dmol; }
 
 function newViewer(host) {
-  return window.$3Dmol.createViewer(host, { backgroundColor: "white", antialias: true });
+  const v = window.$3Dmol.createViewer(host, { antialias: true });
+  v.setBackgroundColor(0xffffff, 0);                 // transparent → CSS gradient shows through
+  v.setViewStyle({ style: "outline", color: "#22242a", width: 0.04 }); // cel-shaded edges
+  return v;
 }
 
+// Ball-and-stick with a subtle unit cell and a gentle auto-spin for a cleaner,
+// more dynamic look than the default sphere/stick rendering.
 function styleCrystal(viewer) {
-  viewer.setStyle({}, { sphere: { scale: 0.33 }, stick: { radius: 0.14 } });
-  try { viewer.addUnitCell(); } catch (_) { /* no cell params */ }
+  viewer.setStyle({}, { sphere: { scale: 0.30 }, stick: { radius: 0.16 } });
+  try { viewer.addUnitCell(undefined, { box: { color: "#b9bdc6" } }); } catch (_) { /* no cell params */ }
   viewer.zoomTo();
-  viewer.zoom(1.1);
+  viewer.zoom(1.18);
+  viewer.spin("y", 0.4);
   viewer.render();
   viewer.resize();
 }
@@ -183,12 +189,18 @@ function styleCrystal(viewer) {
 // clear and reuse (its canvas stays in host); pass null to create a fresh one.
 function loadStructure(host, text, format, reuse, emptyMsg) {
   if (!host) return null;
-  if (!has3Dmol() || !text) {
-    host.innerHTML = `<div class="struct-empty">${!has3Dmol() ? "3D viewer failed to load." : (emptyMsg || "3D structure not available for this entry.")}</div>`;
+  // Paint an empty-state message; first stop any reused viewer's spin so its
+  // animation loop doesn't keep drawing into a canvas we're about to remove.
+  const paintEmpty = (msg) => {
+    if (reuse) { try { reuse.spin(false); reuse.clear(); reuse.render(); } catch (_) {} }
+    host.innerHTML = `<div class="struct-empty">${msg}</div>`;
     return null;
+  };
+  if (!has3Dmol() || !text) {
+    return paintEmpty(!has3Dmol() ? "3D viewer failed to load." : (emptyMsg || "3D structure not available for this entry."));
   }
   let viewer = reuse;
-  if (viewer) { viewer.clear(); }
+  if (viewer) { try { viewer.spin(false); } catch (_) {} viewer.clear(); }
   else { host.innerHTML = ""; viewer = newViewer(host); }
 
   const tryFormats = format === "vasp" ? ["vasp", "cif"] : ["cif", "vasp"];
@@ -200,10 +212,7 @@ function loadStructure(host, text, format, reuse, emptyMsg) {
     const atoms = model ? model.selectedAtoms({}) : [];
     if (atoms.length) { ok = true; break; }
   }
-  if (!ok) {
-    host.innerHTML = `<div class="struct-empty">Couldn't parse this structure for preview.</div>`;
-    return null;
-  }
+  if (!ok) return paintEmpty("Couldn't parse this structure for preview.");
   styleCrystal(viewer);
   return viewer;
 }
@@ -218,10 +227,10 @@ function showDemoStructure(m) {
 }
 
 function applyStructLayout() {
-  const body = document.querySelector(".viewer-body");
-  if (!body) return;
-  const has = dataset().materials.some((m) => STRUCTURES[m.id]);
-  body.classList.toggle("has-struct", has);
+  const wrap = document.getElementById("demo-struct-wrap");
+  if (!wrap) return;
+  // Show the structure rail only on tabs that actually carry CIFs (eDOS/phDOS).
+  wrap.hidden = !dataset().materials.some((m) => STRUCTURES[m.id]);
 }
 
 /* ---------- meta ---------- */
