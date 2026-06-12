@@ -154,86 +154,105 @@ function renderPlot(m) {
   Plotly.react(el.plot, traces, layout, config);
 }
 
-/* ---------- 3D crystal structure (3Dmol) ----------
- * Structures are embedded in data/structures.js (window.DDR_STRUCTURES, keyed
- * by material id = mp-id) so the viewer works offline (file://), matching the
- * no-fetch design of data.js. Only the eDOS/phDOS benchmark entries carry a
- * CIF; case-study tabs have none, so the structure panel is hidden for them. */
+/* ---------- 3D crystal-structure viewer (WEAS) ----------
+ * Structures are embedded in data/structures.js (window.DDR_STRUCTURES, keyed by
+ * mp-id). We render them with WEAS — a crystal-native three.js viewer (periodic
+ * boundary, unit cell, ball-and-stick / polyhedra), purpose-built for atomistic
+ * structures rather than molecules. WEAS is an ES module, loaded lazily via
+ * dynamic import() so it never blocks the DOS demo; it needs network (the demo
+ * data itself stays offline). Only eDOS/phDOS entries carry a CIF; the structure
+ * rail is hidden on case-study tabs. */
 const STRUCTURES = (typeof window !== "undefined" && window.DDR_STRUCTURES) || {};
-let demoViewer = null;
-let uploadViewer = null;
+const WEAS_URL = "https://cdn.jsdelivr.net/npm/weas@0.2.10/dist/index.mjs";
+let WeasLib = null, weasLoading = null;
+let demoViewer = null, uploadViewer = null;
 
-function has3Dmol() { return typeof window !== "undefined" && !!window.$3Dmol; }
-
-function newViewer(host) {
-  const v = window.$3Dmol.createViewer(host, { antialias: true });
-  v.setBackgroundColor(0xffffff, 0);                 // transparent → CSS gradient shows through
-  v.setViewStyle({ style: "outline", color: "#22242a", width: 0.04 }); // cel-shaded edges
-  return v;
+function loadWeas() {
+  if (WeasLib) return Promise.resolve(WeasLib);
+  if (!weasLoading) {
+    weasLoading = import(WEAS_URL)
+      .then((m) => { WeasLib = m; return m; })
+      .catch((e) => { weasLoading = null; throw e; });
+  }
+  return weasLoading;
 }
 
-// Render as a periodic crystal rather than a lone molecule: replicate the unit
-// cell into a small supercell (so the lattice repeat is visible), draw the
-// unit-cell box, and use atom-dominant ball-and-stick (big spheres, thin bonds)
-// so it doesn't read like an organic molecule. 3Dmol bonds are distance-based,
-// so the periodic context is what makes it look crystalline.
-function styleCrystal(viewer) {
-  const model = viewer.getModel();
-  let n = 0;
-  try { n = model.selectedAtoms({}).length; } catch (_) {}
-  const reps = n && n <= 8 ? [2, 2, 2] : n && n <= 20 ? [2, 2, 1] : [1, 1, 1];
-  if (reps[0] * reps[1] * reps[2] > 1) {
-    try { viewer.replicateUnitCell(reps[0], reps[1], reps[2], model, true); } catch (_) {}
-  }
-  viewer.setStyle({}, { sphere: { scale: 0.34 }, stick: { radius: 0.11 } });
-  try { viewer.addUnitCell(model, { box: { color: "#aeb3bd" } }); } catch (_) { /* no cell params */ }
-  viewer.zoomTo();
-  viewer.zoom(1.05);
-  viewer.spin("y", 0.4);
-  viewer.render();
-  viewer.resize();
+function paintStructMsg(host, msg) { host.innerHTML = `<div class="struct-empty">${msg}</div>`; }
+
+// Keep the embedded viewer clean: hide WEAS's GUI panels (buttons / legend /
+// timeline) but keep camera controls so users can still drag to rotate / zoom.
+const WEAS_GUI = {
+  controls: { enabled: false, cameraControls: true },
+  buttons: { enabled: false },
+  timeline: { enabled: false },
+  legend: { enabled: false },
+  atomLegend: { enabled: false },
+};
+
+// Crystal styling: ball-and-stick, standard (Jmol) element colours, and a small
+// periodic boundary so atoms on the cell faces/edges are drawn — the VESTA-style
+// look that reads as a crystal rather than a molecule.
+function applyCrystalStyle(viewer) {
+  try {
+    viewer.avr.applyState({
+      modelStyle: 1,                 // 0 ball · 1 ball-and-stick · 2 polyhedra
+      colorType: "JMOL",
+      boundary: [[-0.01, 1.01], [-0.01, 1.01], [-0.01, 1.01]],
+      atomScale: 0.6,
+      showBondedAtoms: true,
+      backgroundColor: "#ffffff",
+    }, { redraw: "full" });
+  } catch (_) {}
+  try { viewer.avr.backgroundColor = "#ffffff"; } catch (_) {}
 }
 
-// Load `text` (CIF/VASP) into a viewer bound to `host`. Returns the viewer, or
-// null with an empty-state message painted into host. `reuse` is the viewer to
-// clear and reuse (its canvas stays in host); pass null to create a fresh one.
-function loadStructure(host, text, format, reuse, emptyMsg) {
-  if (!host) return null;
-  // Paint an empty-state message; first stop any reused viewer's spin so its
-  // animation loop doesn't keep drawing into a canvas we're about to remove.
-  const paintEmpty = (msg) => {
-    if (reuse) { try { reuse.spin(false); reuse.clear(); reuse.render(); } catch (_) {} }
-    host.innerHTML = `<div class="struct-empty">${msg}</div>`;
-    return null;
-  };
-  if (!has3Dmol() || !text) {
-    return paintEmpty(!has3Dmol() ? "3D viewer failed to load." : (emptyMsg || "3D structure not available for this entry."));
+// Parse `text` (CIF or VASP) and render it into `host`, reusing `viewer` when
+// possible (one WebGL context per host). Returns the viewer, or null.
+function renderCrystal(host, viewer, text, ext) {
+  const { WEAS, parseCIF, parseStructureText, applyStructurePayload } = WeasLib;
+  let atoms = null, payload = null;
+  try {
+    if (ext === ".cif" && parseCIF) atoms = parseCIF(text);
+    else if (parseStructureText) payload = parseStructureText(text, ext);
+  } catch (_) { atoms = null; payload = null; }
+  if (!atoms && !payload && parseStructureText) {
+    try { payload = parseStructureText(text, ext); } catch (_) {}   // last-resort
   }
-  let viewer = reuse;
-  if (viewer) { try { viewer.spin(false); } catch (_) {} viewer.clear(); }
-  else { host.innerHTML = ""; viewer = newViewer(host); }
+  if (!atoms && !payload) { paintStructMsg(host, "Couldn't parse this structure."); return null; }
 
-  const tryFormats = format === "vasp" ? ["vasp", "cif"] : ["cif", "vasp"];
-  let ok = false;
-  for (const fmt of tryFormats) {
-    viewer.clear();
-    let model = null;
-    try { model = viewer.addModel(text, fmt); } catch (_) { model = null; }
-    const atoms = model ? model.selectedAtoms({}) : [];
-    if (atoms.length) { ok = true; break; }
+  if (viewer && viewer.__host === host) {            // reuse existing context
+    try {
+      if (atoms) viewer.avr.updateAtoms([atoms]);
+      else applyStructurePayload(viewer, payload.data);
+      applyCrystalStyle(viewer);
+      viewer.render();
+      return viewer;
+    } catch (_) { /* fall through and recreate */ }
   }
-  if (!ok) return paintEmpty("Couldn't parse this structure for preview.");
-  styleCrystal(viewer);
-  return viewer;
+  host.innerHTML = "";
+  try {
+    const opts = { domElement: host, guiConfig: WEAS_GUI };
+    if (atoms) opts.atoms = atoms;
+    const v = new WEAS(opts);
+    if (!atoms) applyStructurePayload(v, payload.data);
+    v.__host = host;
+    applyCrystalStyle(v);
+    v.render();
+    return v;
+  } catch (_) { paintStructMsg(host, "3D viewer failed to render."); return null; }
 }
 
 function showDemoStructure(m) {
   const host = document.getElementById("struct-view");
-  const cap = document.getElementById("struct-cap");
-  if (!host) return;
+  const wrap = document.getElementById("demo-struct-wrap");
+  if (!host || (wrap && wrap.hidden)) return;        // rail hidden on case-study tabs
   const cif = m && STRUCTURES[m.id];
-  demoViewer = loadStructure(host, cif, "cif", demoViewer, "3D structure not bundled for this case study.");
-  if (cap) cap.style.visibility = demoViewer ? "visible" : "hidden";
+  if (!cif) return;
+  host.dataset.want = m.id;
+  if (!WeasLib) paintStructMsg(host, "Loading 3D viewer…");
+  loadWeas()
+    .then(() => { if (host.dataset.want === m.id) demoViewer = renderCrystal(host, demoViewer, cif, ".cif"); })
+    .catch(() => { paintStructMsg(host, "3D viewer couldn't be loaded (needs a network connection)."); });
 }
 
 function applyStructLayout() {
@@ -366,7 +385,7 @@ function readFileText(file) {
   });
 }
 
-// Guess 3Dmol format from filename/content (CIF vs VASP POSCAR/CONTCAR).
+// Guess structure format from filename/content (CIF vs VASP POSCAR/CONTCAR).
 function guessFormat(name, text) {
   const n = (name || "").toLowerCase();
   if (n.endsWith(".cif") || /_cell_length|_atom_site/.test(text)) return "cif";
@@ -384,7 +403,12 @@ async function showUploadStructure(file) {
   wrap.hidden = false;
   let text;
   try { text = await readFileText(file); } catch (_) { wrap.hidden = true; return; }
-  uploadViewer = loadStructure(host, text, guessFormat(file.name, text), uploadViewer);
+  const ext = guessFormat(file.name, text) === "vasp" ? ".vasp" : ".cif";
+  host.dataset.want = file.name;
+  if (!WeasLib) paintStructMsg(host, "Loading 3D viewer…");
+  loadWeas()
+    .then(() => { if (host.dataset.want === file.name) uploadViewer = renderCrystal(host, uploadViewer, text, ext); })
+    .catch(() => { paintStructMsg(host, "3D viewer couldn't be loaded (needs a network connection)."); });
 }
 
 function plotUpload(data) {
@@ -512,8 +536,9 @@ function init() {
   window.addEventListener("resize", () => {
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(() => {
-      if (demoViewer) try { demoViewer.resize(); } catch (_) {}
-      if (uploadViewer) try { uploadViewer.resize(); } catch (_) {}
+      // WEAS auto-resizes to its container; re-render to refresh the framing.
+      if (demoViewer) try { demoViewer.render(); } catch (_) {}
+      if (uploadViewer) try { uploadViewer.render(); } catch (_) {}
     }, 150);
   });
 }
