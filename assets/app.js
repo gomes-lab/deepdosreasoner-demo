@@ -9,10 +9,9 @@
  * While empty (""), the matching button shows "… (coming soon)" and is disabled,
  * so the page never links to a missing/404 target before publication.
  *   PAPER_URL: arXiv / DOI / journal link.
- *   CODE_URL : the code repository (e.g. https://github.com/gomes-lab/deep-dos-reasoner
- *              once it is public — it currently 404s, so it's disabled for now). */
+ *   CODE_URL : the code repository. */
 const PAPER_URL = ""; // e.g. "https://arxiv.org/abs/XXXX.XXXXX"
-const CODE_URL = "";  // e.g. "https://github.com/gomes-lab/deep-dos-reasoner"
+const CODE_URL = "https://github.com/gomes-lab/deep-dos-reasoner";
 // Full URL of the inference endpoint for the "upload a structure" block (see
 // serve/). While empty (""), that block shows a "not connected yet" message.
 //   e.g. "https://gomes-lab-deepdosreasoner.hf.space/predict"

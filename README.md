@@ -1,7 +1,7 @@
 # DeepDOSReasoner — demo site
 
-Project / demo page for the paper **"DeepDOSReasoner: Physics-Grounded Reasoning
-for Density of States Prediction"** (Wang et al., Cornell / Gomes Lab).
+Project / demo page for the paper **"DeepDOSReasoner: Physics-grounded reasoning
+for density-of-states prediction and materials discovery"** (Wang et al., Cornell / Gomes Lab).
 
 Live: **https://gomes-lab.github.io/deepdosreasoner-demo/**
 
@@ -55,8 +55,7 @@ While a constant is empty (`""`), its button shows "… (coming soon)" and is fu
 disabled (so the site never links to a 404). Set them when the targets are public:
 
 - `PAPER_URL` — the arXiv / DOI / journal link.
-- `CODE_URL` — the code repository (e.g. `https://github.com/gomes-lab/deep-dos-reasoner`
-  once it exists publicly; it currently 404s, so the **Code** button is disabled).
+- `CODE_URL` — the code repository, set to `https://github.com/gomes-lab/deep-dos-reasoner`.
 
 Verify each URL resolves to HTTP 200 for an unauthenticated visitor before setting it.
 
