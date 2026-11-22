@@ -65,6 +65,8 @@ h1, h2, h3 { line-height: 1.2; letter-spacing: -0.01em; }
   color: var(--ink);
 }
 .author { white-space: nowrap; }
+.authors a { color: inherit; }
+.authors a:hover { color: var(--accent); }
 .logos {
   display: flex;
   flex-direction: column;
