@@ -8,6 +8,22 @@
 <meta property="og:title" content="DeepDOSReasoner" />
 <meta property="og:description" content="Physics-grounded reasoning for density-of-states prediction and materials discovery — interactive demo." />
 <meta property="og:type" content="website" />
+<meta property="og:url" content="https://gomes-lab.github.io/deepdosreasoner-demo/" />
+<meta property="og:image" content="https://gomes-lab.github.io/deepdosreasoner-demo/assets/figure1-architecture.png" />
+<meta name="twitter:card" content="summary_large_image" />
+<link rel="canonical" href="https://gomes-lab.github.io/deepdosreasoner-demo/" />
+<meta name="citation_title" content="DeepDOSReasoner: Physics-grounded reasoning for density-of-states prediction and materials discovery" />
+<meta name="citation_author" content="Wang, Yingheng" />
+<meta name="citation_author" content="Ricci, Francesco" />
+<meta name="citation_author" content="Wang, Zhilong" />
+<meta name="citation_author" content="Yu, Tao" />
+<meta name="citation_author" content="Bai, Junwen" />
+<meta name="citation_author" content="Lei, Xiangyun" />
+<meta name="citation_author" content="Kong, Shufeng" />
+<meta name="citation_author" content="You, Fengqi" />
+<meta name="citation_author" content="Gregoire, John M." />
+<meta name="citation_author" content="Gomes, Carla P." />
+<meta name="citation_publication_date" content="2026" />
 <link rel="preconnect" href="https://cdn.plot.ly" />
 <link rel="stylesheet" href="assets/styles.css" />
 </head>
@@ -51,6 +67,8 @@
     <nav class="cta">
       <a id="paper-link" class="btn btn-primary" href="#" target="_blank" rel="noopener">Paper</a>
       <a id="code-link" class="btn" href="#" rel="noopener">Code</a>
+      <a class="btn" href="https://huggingface.co/datasets/yingheng/DeepDOSReasoner" target="_blank" rel="noopener">Data</a>
+      <a class="btn" href="https://huggingface.co/datasets/yingheng/mp-predicted-edos-phdos" target="_blank" rel="noopener">Predicted MP spectra</a>
       <a class="btn" href="#demo">Interactive demo &#8595;</a>
     </nav>
     <p class="status-note">Manuscript under review. The arXiv link will be added once the preprint is announced.</p>
@@ -62,7 +80,7 @@
   <section class="section" id="abstract">
     <div class="wrap">
       <h2>Abstract</h2>
-      <p><strong>DeepDOSReasoner</strong> predicts a material's electronic and phonon density of states (eDOS and phDOS) directly from its crystal structure, the spectra that govern electronic, optical, vibrational, and thermal behavior, and that normally require costly density functional theory (DFT). It couples a structure-aware neural decoder, which grounds each energy bin in the atoms that contribute at that energy via atom-to-energy source attention, with a physics-grounded reasoning stage that refines the spectrum under a continuity-equation transport enforcing non-negativity and total-state conservation by construction. The result sets a new state of the art across eDOS and phDOS benchmarks while running roughly 10<sup>7</sup>× faster than DFT (~10.5&nbsp;ms per crystal). It outperforms every prior crystal-to-spectrum model on all major metrics, raising the eDOS R<sup>2</sup> from 0.645 to 0.691, cutting the eDOS Wasserstein distance by 14.3%, and improving the phDOS R<sup>2</sup> by 15%, while recovering sharp band edges and rare near-Fermi gaps. It is also remarkably sample-efficient, matching those strong baselines with only 25% of the training data and staying accurate in the low-data regime where prior crystal-to-spectrum models break down, which makes it well-suited to new spectrum-prediction tasks with little labeled data.</p>
+      <p><strong>DeepDOSReasoner</strong> predicts a material's electronic and phonon density of states (eDOS and phDOS) directly from its crystal structure, the spectra that govern electronic, optical, vibrational, and thermal behavior, and that normally require costly density functional theory (DFT). It couples a structure-aware neural decoder, which grounds each energy bin in the atoms that contribute at that energy via atom-to-energy source attention, with a physics-grounded reasoning stage that refines the spectrum under a continuity-equation transport enforcing non-negativity and total-state conservation by construction. The result sets a new state of the art across eDOS and phDOS benchmarks while running roughly 10<sup>7</sup>× faster than DFT (~10.5&nbsp;ms per crystal per model). It outperforms every prior crystal-to-spectrum model on all major metrics, raising the eDOS R<sup>2</sup> from 0.645 to 0.691, cutting the eDOS Wasserstein distance by 14.3%, and improving the phDOS R<sup>2</sup> by 15%, while recovering sharp band edges and rare near-Fermi gaps. It is also remarkably sample-efficient, matching those strong baselines with only 25% of the training data and staying accurate in the low-data regime where prior crystal-to-spectrum models break down, which makes it well-suited to new spectrum-prediction tasks with little labeled data.</p>
 
       <figure class="arch-figure">
         <img src="assets/figure1-architecture.png" loading="lazy"
@@ -81,7 +99,7 @@
         <div class="stat"><span class="stat-num">&#8595;20%</span><span class="stat-label">phDOS prediction <em>(MSE vs. best baseline)</em></span></div>
         <div class="stat"><span class="stat-num">0.904</span><span class="stat-label">VB-gap identification <em>(precision)</em></span></div>
         <div class="stat"><span class="stat-num">+18.6%</span><span class="stat-label">VB-gap discovery <em>(MCC vs. best baseline)</em></span></div>
-        <div class="stat"><span class="stat-num">~10<sup>7</sup>&times;</span><span class="stat-label">faster than DFT <em>(~10.5&nbsp;ms / crystal)</em></span></div>
+        <div class="stat"><span class="stat-num">~10<sup>7</sup>&times;</span><span class="stat-label">faster than DFT <em>(~10.5&nbsp;ms / crystal / model)</em></span></div>
         <div class="stat"><span class="stat-num">~25%</span><span class="stat-label">of training data to beat the strongest baseline</span></div>
       </div>
     </div>
@@ -190,6 +208,8 @@
     <p class="foot-links">
       <a id="paper-link-foot" href="#" rel="noopener">Paper</a> ·
       <a id="code-link-foot" href="#" rel="noopener">Code</a> ·
+      <a href="https://huggingface.co/datasets/yingheng/DeepDOSReasoner" rel="noopener">Data</a> ·
+      <a href="https://huggingface.co/datasets/yingheng/mp-predicted-edos-phdos" rel="noopener">Predicted MP spectra</a> ·
       <a href="mailto:yingheng@cs.cornell.edu">Contact</a>
     </p>
     <p class="foot-fine">Gomes Lab, Cornell University. Built on examples from the Materials Project. Data &amp; visualizations are for demonstration; see the paper for full evaluation.</p>

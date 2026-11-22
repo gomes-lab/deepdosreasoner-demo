@@ -48,16 +48,15 @@ python3 -m http.server 8000
 # open http://localhost:8000/
 ```
 
-## To do before/at publication
+## Links
 
-Both link buttons are gated behind URL constants at the top of `assets/app.js`.
-While a constant is empty (`""`), its button shows "… (coming soon)" and is fully
-disabled (so the site never links to a 404). Set them when the targets are public:
+The Paper and Code buttons read `PAPER_URL` and `CODE_URL` at the top of `assets/app.js`;
+while a constant is empty, its button shows "… (coming soon)" and is disabled.
 
-- `PAPER_URL` — the arXiv / DOI / journal link.
-- `CODE_URL` — the code repository, set to `https://github.com/gomes-lab/deep-dos-reasoner`.
-
-Verify each URL resolves to HTTP 200 for an unauthenticated visitor before setting it.
+- Code: https://github.com/gomes-lab/deep-dos-reasoner
+- Benchmark data: https://huggingface.co/datasets/yingheng/DeepDOSReasoner
+- Predicted Materials Project spectra: https://huggingface.co/datasets/yingheng/mp-predicted-edos-phdos
+- Paper: set `PAPER_URL` (and the BibTeX in `index.html`) once arXiv announces the preprint.
 
 ## Deployment
 
